@@ -163,3 +163,33 @@ video {
     border-radius: 12px;
     border: 1px solid rgba(245, 136, 32, 0.3);
 }
+
+/* --- DOWNLOAD BUTTON --- */
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 1.25rem;
+    padding: 0.6rem 1.2rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    width: fit-content;
+}
+
+.download-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.download-btn svg {
+    opacity: 0.8;
+}
