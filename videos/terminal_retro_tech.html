@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Terminal Data Extraction</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #080909;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Consolas', 'Courier New', monospace;
+            color: #61FF7A;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #080909;
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* Scanlines Overlay */
+        #scanlines {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(255, 255, 255, 0.02) 0px,
+                rgba(255, 255, 255, 0.02) 2px,
+                transparent 2px,
+                transparent 5px
+            );
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* Terminal Window */
+        #terminal-window {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 2700px;
+            height: 1700px;
+            background-color: #111412;
+            border: 8px solid #3A443D;
+            transform: translate(-50%, -50%);
+            display: flex;
+            flex-direction: column;
+            will-change: transform;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
+        }
+
+        #term-header {
+            height: 70px;
+            background-color: #111412;
+            border-bottom: 8px solid #3A443D;
+            display: flex;
+            align-items: center;
+            padding: 0 30px;
+            font-size: 32px;
+            color: #B7FFC3;
+            letter-spacing: 2px;
+        }
+
+        #term-dots {
+            letter-spacing: 15px;
+            margin-right: 40px;
+        }
+
+        #term-body {
+            position: relative;
+            flex: 1;
+            padding: 80px 100px;
+            overflow: hidden;
+        }
+
+        /* Scrolling Text Container */
+        #term-scroll {
+            position: absolute;
+            left: 100px;
+            top: 80px;
+            width: calc(100% - 200px);
+            will-change: transform;
+            transform-origin: center center;
+        }
+
+        .term-line {
+            font-size: 45px;
+            line-height: 1.6;
+            margin-bottom: 10px;
+            white-space: pre;
+            opacity: 0; /* Hidden by default, JS reveals */
+        }
+
+        .mt-big {
+            margin-top: 80px;
+        }
+
+        .highlight-green {
+            background-color: #61FF7A;
+            color: #111412;
+            display: inline-block;
+            padding: 5px 30px;
+            font-size: 55px;
+            font-weight: bold;
+            transform-origin: left center;
+        }
+
+        .large-text {
+            font-size: 75px;
+            margin: 40px 0;
+            display: inline-block;
+        }
+
+        .accent-text {
+            color: #F5C84B;
+            font-size: 55px;
+            font-weight: bold;
+        }
+
+        .stat-val {
+            display: inline-block;
+            width: 150px;
+            text-align: right;
+            color: #B7FFC3;
+        }
+
+        /* ASCII Network */
+        #network-container {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 0; height: 0;
+            overflow: visible;
+            opacity: 0;
+            z-index: 50;
+        }
+
+        #network-svg {
+            position: absolute;
+            left: -1350px; /* Half of terminal width roughly */
+            top: -850px;
+            width: 2700px;
+            height: 1700px;
+            overflow: visible;
+        }
+
+        .net-line {
+            fill: none;
+            stroke: #61FF7A;
+            stroke-width: 6;
+            stroke-dasharray: 3000;
+            stroke-dashoffset: 3000;
+        }
+
+        .node {
+            position: absolute;
+            transform: translate(-50%, -50%) scale(0);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .node-dot {
+            background-color: #61FF7A;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .primary-node .node-dot {
+            width: 120px;
+            height: 120px;
+            border: 8px solid #F5C84B;
+            background-color: #111412;
+            color: #F5C84B;
+            font-weight: bold;
+            font-size: 40px;
+        }
+
+        .sub-node .node-dot {
+            width: 40px;
+            height: 40px;
+        }
+
+        .child-node .node-dot {
+            width: 25px;
+            height: 25px;
+            background-color: #B7FFC3;
+        }
+
+        .node-label {
+            margin-top: 15px;
+            font-size: 32px;
+            font-weight: bold;
+            color: #B7FFC3;
+            text-shadow: 0 0 10px #111412;
+            white-space: nowrap;
+        }
+
+        /* Final State */
+        #final-state {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 50px;
+            font-weight: bold;
+            opacity: 0;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #cursor {
+            display: inline-block;
+            width: 30px;
+            height: 50px;
+            background-color: #61FF7A;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <div id="scanlines"></div>
+        
+        <div id="terminal-window">
+            <div id="term-header">
+                <span id="term-dots">● ● ●</span> TUPAI SYSTEM TERMINAL
+            </div>
+            <div id="term-body">
+                
+                <!-- TERMINAL TEXT SEQUENCE -->
+                <div id="term-scroll">
+                    <div id="line-boot1" class="term-line">> INITIALIZING SYSTEM...</div>
+                    <div id="line-boot2" class="term-line">> LOADING MODULES...</div>
+                    <div id="line-boot3" class="term-line">> CONNECTING...</div>
+                    
+                    <div id="line-auth1" class="term-line mt-big">> AUTHENTICATING...</div>
+                    <div id="line-auth2" class="term-line highlight-green">> ACCESS GRANTED</div>
+                    
+                    <div id="line-dl-head" class="term-line mt-big">> DOWNLOADING 847 FILES</div>
+                    <div id="line-dl-prog" class="term-line large-text">[░░░░░░░░░░░░░░░░░░░░] 0%</div>
+                    <div id="line-dl-stat1" class="term-line">  FILES      <span id="stat-files" class="stat-val">0</span></div>
+                    <div id="line-dl-stat2" class="term-line">  SIZE       <span id="stat-size" class="stat-val">0.00</span> GB</div>
+                    <div id="line-dl-stat3" class="term-line">  SPEED      <span id="stat-speed" class="stat-val">0</span> MB/s</div>
+                    
+                    <div id="line-complete" class="term-line mt-big accent-text">> EXTRACTION COMPLETE</div>
+                </div>
+
+                <!-- ASCII NETWORK VISUALIZATION -->
+                <div id="network-container">
+                    <svg id="network-svg" viewBox="-1350 -850 2700 1700">
+                        <!-- Lines connecting nodes (Origin 0,0 is center) -->
+                        <line class="net-line" id="line-c1" x1="0" y1="0" x2="-600" y2="-350" />
+                        <line class="net-line" id="line-c2" x1="0" y1="0" x2="600" y2="-350" />
+                        <line class="net-line" id="line-c3" x1="0" y1="0" x2="-600" y2="350" />
+                        <line class="net-line" id="line-c4" x1="0" y1="0" x2="600" y2="350" />
+                        
+                        <line class="net-line" id="line-s1" x1="-600" y1="-350" x2="-900" y2="-200" />
+                        <line class="net-line" id="line-s2" x1="-600" y1="-350" x2="-750" y2="-550" />
+                        <line class="net-line" id="line-s3" x1="600" y1="-350" x2="900" y2="-400" />
+                        <line class="net-line" id="line-s4" x1="-600" y1="350" x2="-500" y2="600" />
+                        <line class="net-line" id="line-s5" x1="600" y1="350" x2="850" y2="250" />
+                        <line class="net-line" id="line-s6" x1="600" y1="350" x2="700" y2="550" />
+                    </svg>
+
+                    <!-- Nodes -->
+                    <!-- Center Core -->
+                    <div class="node primary-node" id="node-core" style="left: 0; top: 0;">
+                        <div class="node-dot">●</div>
+                        <div class="node-label">DATA_CORE</div>
+                    </div>
+                    
+                    <!-- Clusters -->
+                    <div class="node sub-node" id="node-clus1" style="left: -600px; top: -350px;">
+                        <div class="node-dot"></div>
+                        <div class="node-label">FILES</div>
+                    </div>
+                    <div class="node sub-node" id="node-clus2" style="left: 600px; top: -350px;">
+                        <div class="node-dot"></div>
+                        <div class="node-label">MEDIA</div>
+                    </div>
+                    <div class="node sub-node" id="node-clus3" style="left: -600px; top: 350px;">
+                        <div class="node-dot"></div>
+                        <div class="node-label">DOCS</div>
+                    </div>
+                    <div class="node sub-node" id="node-clus4" style="left: 600px; top: 350px;">
+                        <div class="node-dot"></div>
+                        <div class="node-label">ARCHIVE</div>
+                    </div>
+
+                    <!-- Outer Sub-nodes -->
+                    <div class="node child-node" id="node-sub1" style="left: -900px; top: -200px;"><div class="node-dot"></div><div class="node-label" style="font-size:22px;">SYS_32</div></div>
+                    <div class="node child-node" id="node-sub2" style="left: -750px; top: -550px;"><div class="node-dot"></div></div>
+                    <div class="node child-node" id="node-sub3" style="left: 900px; top: -400px;"><div class="node-dot"></div><div class="node-label" style="font-size:22px;">IMG_RAW</div></div>
+                    <div class="node child-node" id="node-sub4" style="left: -500px; top: 600px;"><div class="node-dot"></div></div>
+                    <div class="node child-node" id="node-sub5" style="left: 850px; top: 250px;"><div class="node-dot"></div><div class="node-label" style="font-size:22px;">EXT_01</div></div>
+                    <div class="node child-node" id="node-sub6" style="left: 700px; top: 550px;"><div class="node-dot"></div></div>
+                </div>
+
+                <!-- FINAL TEXT -->
+                <div id="final-state">
+                    > 847 FILES EXTRACTED <span id="cursor"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            linear: x => x,
+            outExpo: x => x === 1 ? 1 : 1 - Math.pow(2, -10 * x),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+            outBack: x => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); }
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS
+         */
+        const config = [
+            // --- TERMINAL CONTAINER ---
+            {
+                id: 'terminal-window',
+                tracks: {
+                    scale: [ {t:0,v:0.96}, {t:0.4,v:1.0,e:'outExpo'} ]
+                }
+            },
+            
+            // --- SCROLLING CONTAINER ---
+            {
+                id: 'term-scroll',
+                tracks: {
+                    y: [ {t:0,v:0}, {t:0.7,v:0}, {t:1.0,v:-180,e:'inOutCubic'}, {t:1.5,v:-180}, {t:1.8,v:-520,e:'inOutCubic'} ],
+                    scale: [ {t:0,v:1}, {t:3.2,v:1}, {t:3.5,v:0,e:'inOutCubic'} ],
+                    opacity: [ {t:0,v:1}, {t:3.3,v:1}, {t:3.5,v:0} ]
+                }
+            },
+
+            // --- TEXT LINES APPEARANCE (Opacity Steps) ---
+            { id: 'line-boot1', tracks: { opacity: [ {t:0,v:0}, {t:0.1,v:0}, {t:0.101,v:1} ] } },
+            { id: 'line-boot2', tracks: { opacity: [ {t:0,v:0}, {t:0.3,v:0}, {t:0.301,v:1} ] } },
+            { id: 'line-boot3', tracks: { opacity: [ {t:0,v:0}, {t:0.5,v:0}, {t:0.501,v:1} ] } },
+            { id: 'line-auth1', tracks: { opacity: [ {t:0,v:0}, {t:0.8,v:0}, {t:0.801,v:1} ] } },
+            
+            // ACCESS GRANTED Highlight & Scale
+            {
+                id: 'line-auth2',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:1.1,v:0}, {t:1.101,v:1} ],
+                    scale: [ {t:0,v:0.9}, {t:1.1,v:0.9}, {t:1.4,v:1,e:'outBack'} ]
+                }
+            },
+
+            // Download Block Appearance
+            { id: 'line-dl-head', tracks: { opacity: [ {t:0,v:0}, {t:1.6,v:0}, {t:1.601,v:1} ] } },
+            { id: 'line-dl-prog', tracks: { opacity: [ {t:0,v:0}, {t:1.6,v:0}, {t:1.601,v:1} ] } },
+            { id: 'line-dl-stat1', tracks: { opacity: [ {t:0,v:0}, {t:1.6,v:0}, {t:1.601,v:1} ] } },
+            { id: 'line-dl-stat2', tracks: { opacity: [ {t:0,v:0}, {t:1.6,v:0}, {t:1.601,v:1} ] } },
+            { id: 'line-dl-stat3', tracks: { opacity: [ {t:0,v:0}, {t:1.6,v:0}, {t:1.601,v:1} ] } },
+            
+            // Extraction Complete
+            { id: 'line-complete', tracks: { opacity: [ {t:0,v:0}, {t:2.9,v:0}, {t:2.901,v:1} ] } },
+
+            // --- ASCII NETWORK WRAPPER ---
+            {
+                id: 'network-container',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:3.5,v:0}, {t:3.501,v:1} ]
+                }
+            },
+
+            // --- NODES (Scale in) ---
+            { id: 'node-core', tracks: { scale: [ {t:0,v:0}, {t:3.5,v:0}, {t:3.8,v:1,e:'outBack'} ] } },
+            { id: 'node-clus1', tracks: { scale: [ {t:0,v:0}, {t:3.8,v:0}, {t:4.1,v:1,e:'outBack'} ] } },
+            { id: 'node-clus2', tracks: { scale: [ {t:0,v:0}, {t:3.8,v:0}, {t:4.1,v:1,e:'outBack'} ] } },
+            { id: 'node-clus3', tracks: { scale: [ {t:0,v:0}, {t:3.8,v:0}, {t:4.1,v:1,e:'outBack'} ] } },
+            { id: 'node-clus4', tracks: { scale: [ {t:0,v:0}, {t:3.8,v:0}, {t:4.1,v:1,e:'outBack'} ] } },
+            
+            { id: 'node-sub1', tracks: { scale: [ {t:0,v:0}, {t:4.1,v:0}, {t:4.4,v:1,e:'outBack'} ] } },
+            { id: 'node-sub2', tracks: { scale: [ {t:0,v:0}, {t:4.1,v:0}, {t:4.4,v:1,e:'outBack'} ] } },
+            { id: 'node-sub3', tracks: { scale: [ {t:0,v:0}, {t:4.1,v:0}, {t:4.4,v:1,e:'outBack'} ] } },
+            { id: 'node-sub4', tracks: { scale: [ {t:0,v:0}, {t:4.1,v:0}, {t:4.4,v:1,e:'outBack'} ] } },
+            { id: 'node-sub5', tracks: { scale: [ {t:0,v:0}, {t:4.1,v:0}, {t:4.4,v:1,e:'outBack'} ] } },
+            { id: 'node-sub6', tracks: { scale: [ {t:0,v:0}, {t:4.1,v:0}, {t:4.4,v:1,e:'outBack'} ] } },
+
+            // --- LINES (Dash Offset drawing) ---
+            { id: 'line-c1', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.6,v:3000}, {t:4.0,v:0,e:'outExpo'} ] } },
+            { id: 'line-c2', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.6,v:3000}, {t:4.0,v:0,e:'outExpo'} ] } },
+            { id: 'line-c3', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.6,v:3000}, {t:4.0,v:0,e:'outExpo'} ] } },
+            { id: 'line-c4', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.6,v:3000}, {t:4.0,v:0,e:'outExpo'} ] } },
+            
+            { id: 'line-s1', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.9,v:3000}, {t:4.3,v:0,e:'outExpo'} ] } },
+            { id: 'line-s2', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.9,v:3000}, {t:4.3,v:0,e:'outExpo'} ] } },
+            { id: 'line-s3', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.9,v:3000}, {t:4.3,v:0,e:'outExpo'} ] } },
+            { id: 'line-s4', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.9,v:3000}, {t:4.3,v:0,e:'outExpo'} ] } },
+            { id: 'line-s5', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.9,v:3000}, {t:4.3,v:0,e:'outExpo'} ] } },
+            { id: 'line-s6', tracks: { strokeDashoffset: [ {t:0,v:3000}, {t:3.9,v:3000}, {t:4.3,v:0,e:'outExpo'} ] } },
+
+            // --- FINAL TEXT ---
+            {
+                id: 'final-state',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:4.5,v:0}, {t:4.501,v:1} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let t = (timestamp - startTime) / 1000;
+
+            // 1. Process Standard Config Tracks
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                if (conf.tracks.x || conf.tracks.y || conf.tracks.scale || conf.tracks.scaleX) {
+                    let x = evaluateTrack(conf.tracks.x, t, 0);
+                    let y = evaluateTrack(conf.tracks.y, t, 0);
+                    let scale = evaluateTrack(conf.tracks.scale, t, 1);
+                    
+                    // Specific centering handling for nodes and final state
+                    if (el.classList.contains('node') || el.id === 'final-state' || el.id === 'terminal-window') {
+                        el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
+                    } else {
+                        el.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+                    }
+                }
+                
+                if (conf.tracks.opacity !== undefined) {
+                    el.style.opacity = evaluateTrack(conf.tracks.opacity, t, 1);
+                }
+
+                if (conf.tracks.strokeDashoffset !== undefined) {
+                    el.style.strokeDashoffset = evaluateTrack(conf.tracks.strokeDashoffset, t, 3000);
+                }
+            });
+
+            // 2. Process Dynamic Data Extraction Logic (Progress Bar)
+            let p = 0, files = 0, size = 0.00, speed = 0;
+            if (t >= 1.6) { p = 23; files = 194; size = 1.10; speed = 542; }
+            if (t >= 2.0) { p = 47; files = 398; size = 2.26; speed = 761; }
+            if (t >= 2.3) { p = 68; files = 575; size = 3.27; speed = 812; }
+            if (t >= 2.6) { p = 84; files = 711; size = 4.04; speed = 789; }
+            if (t >= 2.9) { p = 100; files = 847; size = 4.82; speed = 0; }
+
+            const barProg = document.getElementById('line-dl-prog');
+            if (t >= 1.6 && t < 3.2) {
+                let fCount = Math.floor((p/100)*20);
+                barProg.innerText = `[${'█'.repeat(fCount)}${'░'.repeat(20-fCount)}] ${p}%`;
+                document.getElementById('stat-files').innerText = files.toString().padStart(3, ' ');
+                document.getElementById('stat-size').innerText = size.toFixed(2);
+                document.getElementById('stat-speed').innerText = speed.toString().padStart(3, ' ');
+            }
+
+            // Extraction Complete Flash
+            if (t >= 3.0 && t < 3.2) {
+                if (Math.floor(t * 15) % 2 === 0) {
+                    barProg.style.color = '#111412';
+                    barProg.style.backgroundColor = '#61FF7A';
+                } else {
+                    barProg.style.color = '#61FF7A';
+                    barProg.style.backgroundColor = 'transparent';
+                }
+            } else {
+                barProg.style.color = '#61FF7A';
+                barProg.style.backgroundColor = 'transparent';
+            }
+
+            // 3. Blinking Cursor Logic
+            const cursor = document.getElementById('cursor');
+            if (cursor) {
+                // Blink every 0.4s
+                cursor.style.opacity = Math.floor(t / 0.4) % 2 === 0 ? 1 : 0;
+            }
+
+            // Loop forever, deterministic state maps any t value > 5.0
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation Loop
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

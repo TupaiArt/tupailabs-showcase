@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Glyph Icon: Typography Creature</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #F4EFE6; /* Warm off-white */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+        }
+
+        /* 16:9 Canvas Scale Wrapper */
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16/9 Ratio Limit */
+            max-height: 56.25vw;
+            background-color: #F4EFE6;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+
+        /* Glyph Styling */
+        text.glyph {
+            font-family: 'Arial Black', Impact, sans-serif;
+            font-weight: 900;
+            /* paint-order puts stroke on the outside so it doesn't thin the letter */
+            paint-order: stroke fill;
+            stroke: #F4EFE6; 
+            stroke-width: 4px;
+            stroke-linejoin: round;
+            will-change: transform;
+        }
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <svg id="glyph-svg" viewBox="0 0 1920 1080">
+        
+        <!-- Subtle shadow under the creature -->
+        <ellipse id="ground-shadow" cx="960" cy="880" rx="160" ry="15" fill="#E2DACD" />
+
+        <!-- Main Creature Group -->
+        <g id="creature-group">
+            <!-- Text Glyphs injected by JS -->
+        </g>
+
+        <!-- Typography Caption -->
+        <text x="960" y="980" font-size="22" font-family="'Helvetica Neue', sans-serif" font-weight="700" fill="#9C958A" text-anchor="middle" letter-spacing="8">TYPE AS GEOMETRY</text>
+        <text x="960" y="1010" font-size="14" font-family="'Helvetica Neue', sans-serif" font-weight="600" fill="#BEB7AC" text-anchor="middle" letter-spacing="4">GLYPH CREATURE / A–Z</text>
+    </svg>
+</div>
+
+<script>
+    const svgContainer = document.getElementById('creature-group');
+
+    // ==========================================
+    // 1. ENGINE & UTILITIES
+    // ==========================================
+    const DURATION = 5.0; // 5-Second Loop
+
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+
+    // Seeded random for deterministic scatter
+    let seed = 777;
+    function random() {
+        let x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+    }
+
+    const C_MAIN = '#2C224D';   // Deep Indigo/Navy
+    const C_ACCENT = '#FF5A36'; // Bright Coral/Orange
+
+    // ==========================================
+    // 2. CREATURE ANATOMY (NEUTRAL STATE)
+    // ==========================================
+    // Head: 8 A's forming an oval
+    // Body: 8 A's forming a smaller chubby shape
+    // Mouth: 4 A's forming a small line
+    // Format: { id, group, color, neutral: [x, y, scale, rotation] }
+    const baseGlyphs = [
+        // HORNS / EARS
+        { id: 'e_l',  g: 'ear',   c: C_MAIN, n: [870, 220, 1.1, -25] },
+        { id: 'e_r',  g: 'ear',   c: C_MAIN, n: [1050, 220, 1.1, 25] },
+        
+        // HEAD MASS (8 Glyphs forming a compact oval)
+        { id: 'h_c',  g: 'head',  c: C_MAIN, n: [960, 360, 1.7, 0] },
+        { id: 'h_tl', g: 'head',  c: C_MAIN, n: [890, 320, 1.2, -30] },
+        { id: 'h_tr', g: 'head',  c: C_MAIN, n: [1030, 320, 1.2, 30] },
+        { id: 'h_l',  g: 'head',  c: C_MAIN, n: [840, 390, 1.2, -70] },
+        { id: 'h_r',  g: 'head',  c: C_MAIN, n: [1080, 390, 1.2, 70] },
+        { id: 'h_bl', g: 'head',  c: C_MAIN, n: [880, 460, 1.2, -120] },
+        { id: 'h_br', g: 'head',  c: C_MAIN, n: [1040, 460, 1.2, 120] },
+        { id: 'h_bc', g: 'head',  c: C_MAIN, n: [960, 480, 1.4, 180] },
+        
+        // EYES (Accent Color, Integrated into head)
+        { id: 'eye_l',g: 'eye',   c: C_ACCENT, n: [900, 390, 0.55, 0] },
+        { id: 'eye_r',g: 'eye',   c: C_ACCENT, n: [1020, 390, 0.55, 0] },
+        
+        // MOUTH (4 small glyphs)
+        { id: 'm_1',  g: 'mouth', c: C_MAIN, n: [925, 460, 0.35, -15] },
+        { id: 'm_2',  g: 'mouth', c: C_MAIN, n: [950, 465, 0.35, -5] },
+        { id: 'm_3',  g: 'mouth', c: C_MAIN, n: [970, 465, 0.35, 5] },
+        { id: 'm_4',  g: 'mouth', c: C_MAIN, n: [995, 460, 0.35, 15] },
+        
+        // CHUBBY BODY MASS
+        { id: 'b_c',  g: 'body',  c: C_MAIN, n: [960, 600, 1.7, 0] },
+        { id: 'b_tl', g: 'body',  c: C_MAIN, n: [900, 560, 1.1, -25] },
+        { id: 'b_tr', g: 'body',  c: C_MAIN, n: [1020, 560, 1.1, 25] },
+        { id: 'b_l',  g: 'body',  c: C_MAIN, n: [850, 630, 1.1, -60] },
+        { id: 'b_r',  g: 'body',  c: C_MAIN, n: [1070, 630, 1.1, 60] },
+        { id: 'b_bl', g: 'body',  c: C_MAIN, n: [900, 690, 1.1, -120] },
+        { id: 'b_br', g: 'body',  c: C_MAIN, n: [1020, 690, 1.1, 120] },
+        { id: 'b_bc', g: 'body',  c: C_MAIN, n: [960, 710, 1.2, 180] },
+        
+        // ARMS (Left & Right hanging down)
+        { id: 'a_l1', g: 'arm',   c: C_MAIN, n: [780, 570, 0.8, 35] },
+        { id: 'a_l2', g: 'arm',   c: C_MAIN, n: [740, 630, 0.7, 45] },
+        { id: 'a_r1', g: 'arm',   c: C_MAIN, n: [1140, 570, 0.8, -35] },
+        { id: 'a_r2', g: 'arm',   c: C_MAIN, n: [1180, 630, 0.7, -45] },
+        
+        // LEGS (Short, standing)
+        { id: 'l_l1', g: 'leg',   c: C_MAIN, n: [910, 760, 0.9, 0] },
+        { id: 'l_l2', g: 'leg',   c: C_MAIN, n: [900, 820, 0.8, 0] },
+        { id: 'l_r1', g: 'leg',   c: C_MAIN, n: [1010, 760, 0.9, 0] },
+        { id: 'l_r2', g: 'leg',   c: C_MAIN, n: [1020, 820, 0.8, 0] }
+    ];
+
+    // Stagger Mapping for organic buildup
+    const staggerMap = { head: 0, eye: 0.04, ear: 0.06, mouth: 0.08, body: 0.12, arm: 0.16, leg: 0.20 };
+
+    // ==========================================
+    // 3. EXPRESSION MODIFIERS (Deltas)
+    // ==========================================
+    const stateMods = {
+        curious: {
+            // Slight tilt to the left (-8 deg simulation via pos offset)
+            head:   { dx: -15, dy: 10, dr: -8 },
+            ear:    { dx: -15, dy: 10, dr: -8 },
+            eye:    { dx: -15, dy: 10, dr: -8 },
+            mouth:  { dx: -15, dy: 10, dr: -8 },
+            
+            // Eye raise
+            eye_r:  { dy: -10, ds: 0.1 },
+            
+            // Arm raise
+            a_r1:   { dy: -30, dr: 60 },
+            a_r2:   { dy: -60, dx: -20, dr: 90 }
+        },
+        surprised: {
+            // Eyes enlarge
+            eye:    { ds: 0.4 },
+            
+            // Head shell expands outward
+            h_tl:   { dx: -15, dy: -15 },
+            h_tr:   { dx: 15, dy: -15 },
+            h_l:    { dx: -20 },
+            h_r:    { dx: 20 },
+            
+            // Mouth opens wide (Diamond/O shape)
+            m_1:    { dx: -15, dy: -20, dr: -30 }, // -15 (relative to neutral -15 = -45)
+            m_2:    { dx: -10, dy: 15,  dr: -130 },
+            m_3:    { dx: 10,  dy: 15,  dr: 130 },
+            m_4:    { dx: 15,  dy: -20, dr: 30 },
+            
+            // Arms fly up
+            a_l1:   { dy: -80, dx: -20, dr: -115 },
+            a_l2:   { dy: -140, dx: -40, dr: -145 },
+            a_r1:   { dy: -80, dx: 20, dr: 115 },
+            a_r2:   { dy: -140, dx: 40, dr: 145 },
+            
+            // Body slightly expands
+            body:   { ds: 0.08 }
+        },
+        happy: {
+            // Eyes squint
+            eye_l:  { dr: 45, ds: -0.1 },
+            eye_r:  { dr: -45, ds: -0.1 },
+            
+            // Mouth smiles wide
+            m_1:    { dx: -25, dy: -15, dr: -15 }, // Adds to neutral -15
+            m_2:    { dx: -10, dy: 5,   dr: -5 },
+            m_3:    { dx: 10,  dy: 5,   dr: 5 },
+            m_4:    { dx: 25,  dy: -15, dr: 15 },
+            
+            // Arms excitedly up
+            a_l1:   { dy: -40, dx: -10, dr: -75 },
+            a_l2:   { dy: -80, dx: -20, dr: -105 },
+            a_r1:   { dy: -40, dx: 10, dr: 75 },
+            a_r2:   { dy: -80, dx: 20, dr: 105 },
+            
+            // Pull legs up slightly for bounce
+            l_l2:   { dy: -15 },
+            l_r2:   { dy: -15 }
+        }
+    };
+
+    // ==========================================
+    // 4. BUILD GLYPH DATA & DOM
+    // ==========================================
+    let glyphData = baseGlyphs.map((g) => {
+        let data = {
+            id: g.id,
+            group: g.g,
+            stagger: staggerMap[g.g] || 0,
+            states: {
+                neutral: { x: g.n[0], y: g.n[1], s: g.n[2], r: g.n[3] },
+                scatter: {
+                    x: 960 + (random() - 0.5) * 2500,
+                    y: 540 + (random() - 0.5) * 1500,
+                    s: 0.1 + random() * 0.4,
+                    r: (random() - 0.5) * 720
+                }
+            }
+        };
+
+        const applyExpression = (stateName) => {
+            let n = data.states.neutral;
+            let sm = stateMods[stateName];
+            // Match specific ID, or fallback to general group
+            let mods = sm[g.id] || sm[g.g] || {};
+
+            data.states[stateName] = {
+                x: n.x + (mods.dx || 0),
+                y: n.y + (mods.dy || 0),
+                s: n.s + (mods.ds || 0),
+                r: n.r + (mods.dr || 0)
+            };
+        };
+
+        applyExpression('curious');
+        applyExpression('surprised');
+        applyExpression('happy');
+
+        // Create SVG Text Element
+        let tEl = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        tEl.textContent = "A";
+        tEl.setAttribute("fill", g.c);
+        tEl.setAttribute("class", "glyph");
+        tEl.setAttribute("text-anchor", "middle");
+        tEl.setAttribute("dominant-baseline", "central");
+        tEl.setAttribute("font-size", "100px"); // Base font size
+        
+        // Remove stroke for eyes to keep them crisp and small
+        if (g.g === 'eye') {
+            tEl.setAttribute("stroke", "none");
+        }
+
+        data.el = tEl;
+        svgContainer.appendChild(tEl);
+
+        return data;
+    });
+
+    const groundShadow = document.getElementById('ground-shadow');
+
+    // ==========================================
+    // 5. ANIMATION LOOP
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let t = ((timestamp - startTime) / 1000) % DURATION;
+
+        // Bounce mechanics for the Happy state
+        let bounceY = 0;
+        let shadowScale = 1;
+        if (t > 3.1 && t < 4.8) {
+            let bouncePhase = Math.sin((t - 3.1) * Math.PI * 6);
+            bounceY = bouncePhase * -20; // Upward bounce
+            if (bounceY > 0) bounceY = 0; // Lock to ground
+            shadowScale = 1 + (bounceY / 100);
+        }
+
+        groundShadow.setAttribute('transform', `translate(0, ${-bounceY/2}) scale(${shadowScale})`);
+        groundShadow.style.transformOrigin = "960px 880px";
+
+        glyphData.forEach((g, index) => {
+            let st = g.stagger;
+            let state1, state2, p = 0;
+
+            // Timeline Routing
+            if (t < 0.8) {
+                state1 = 'scatter'; state2 = 'neutral';
+                p = clamp((t - (0.0 + st)) / 0.4);
+            } else if (t < 1.5) {
+                state1 = 'neutral'; state2 = 'neutral';
+            } else if (t < 2.3) {
+                state1 = 'neutral'; state2 = 'curious';
+                p = clamp((t - (1.5 + st)) / 0.4);
+            } else if (t < 3.1) {
+                state1 = 'curious'; state2 = 'surprised';
+                p = clamp((t - (2.3 + st)) / 0.4);
+            } else if (t < 4.5) {
+                state1 = 'surprised'; state2 = 'happy';
+                p = clamp((t - (3.1 + st)) / 0.4);
+            } else {
+                state1 = 'happy'; state2 = 'scatter';
+                p = clamp((t - (4.7 + st)) / 0.2); // Scatter quickly at the end
+            }
+
+            let easeP = easeInOutCubic(p);
+            let s1 = g.states[state1];
+            let s2 = g.states[state2];
+
+            let curX = lerp(s1.x, s2.x, easeP);
+            let curY = lerp(s1.y, s2.y, easeP);
+            let curS = lerp(s1.s, s2.s, easeP);
+            let curR = lerp(s1.r, s2.r, easeP);
+
+            // Subtle Idle Breathing (Neutral Phase)
+            if (t > 0.8 && t < 1.5 && easeP >= 1) {
+                curY += Math.sin(t * Math.PI * 3 + index) * 1.5;
+            }
+
+            // Apply global bounce offset during Happy state
+            if (t > 3.1 && t < 4.8) {
+                // Legs bounce less to stay grounded
+                let bMulti = g.group === 'leg' ? 0.3 : 1.0;
+                curY += bounceY * bMulti;
+            }
+
+            // Apply Transforms
+            g.el.setAttribute('transform', `translate(${curX}, ${curY}) scale(${curS}) rotate(${curR})`);
+        });
+
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

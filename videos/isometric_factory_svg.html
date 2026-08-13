@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isometric Factory: Full Rebuild</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #F1EEE6;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16:9 Aspect Ratio */
+            max-height: 56.25vw;
+            background-color: #F1EEE6;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <!-- Viewport is configured so (0,0) is center, scaling appropriately -->
+    <svg id="factory-svg" viewBox="-500 -350 1000 700"></svg>
+</div>
+
+<script>
+    const svg = document.getElementById('factory-svg');
+
+    // ==========================================
+    // 1. ISOMETRIC PROJECTION HELPERS
+    // ==========================================
+    const COS30 = 0.866025;
+    const SIN30 = 0.5;
+
+    // Standard Isometric mapping: X goes bottom-right, Y goes bottom-left, Z goes up
+    function project(x, y, z) {
+        return {
+            x: (x - y) * COS30,
+            y: (x + y) * SIN30 - z
+        };
+    }
+
+    // Helper to generate SVG polygon
+    function makePoly(points, fill) {
+        const pts = points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+        // Using stroke matching fill to prevent sub-pixel gaps, except for the border highlight
+        return `<polygon points="${pts}" fill="${fill}" stroke="${fill}" stroke-width="0.5" stroke-linejoin="round" />`;
+    }
+
+    // Advanced 3D Box generator with explicit layering for isometric depth
+    function drawBox3D(x, y, z, w, d, h, cTop, cLeft, cRight) {
+        const p0 = project(x, y, z);
+        const p1 = project(x+w, y, z);
+        const p2 = project(x+w, y+d, z);
+        const p3 = project(x, y+d, z);
+        const p4 = project(x, y, z+h);
+        const p5 = project(x+w, y, z+h);
+        const p6 = project(x+w, y+d, z+h);
+        const p7 = project(x, y+d, z+h);
+
+        // SVG string builder
+        let boxSVG = "";
+        
+        // Left Face (Spans Y, Faces -X direction logically, but drawn on left side of screen)
+        boxSVG += makePoly([p3, p2, p6, p7], cLeft);
+        
+        // Right Face (Spans X, Faces -Y direction)
+        boxSVG += makePoly([p1, p2, p6, p5], cRight);
+        
+        // Top Face (Spans X and Y)
+        boxSVG += makePoly([p4, p5, p6, p7], cTop);
+        
+        // Add crisp outline accents for premium industrial look
+        boxSVG += `<polyline points="${p7.x},${p7.y} ${p6.x},${p6.y} ${p5.x},${p5.y}" fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="1.5" />`;
+        boxSVG += `<line x1="${p6.x}" y1="${p6.y}" x2="${p2.x}" y2="${p2.y}" stroke="rgba(0,0,0,0.2)" stroke-width="1.5" />`;
+        
+        return boxSVG;
+    }
+
+    // ==========================================
+    // 2. MATH & EASING UTILITIES
+    // ==========================================
+    function easeInOutQuad(t) {
+        return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+    }
+    
+    function lerp(a, b, t) {
+        return a + (b - a) * t;
+    }
+
+    // ==========================================
+    // 3. MAIN ANIMATION ENGINE
+    // ==========================================
+    function render(timestamp) {
+        let t = (timestamp / 1000) % 5.0; // 5-Second Loop
+
+        // --- A. STATE VARIABLES ---
+        
+        // Box State
+        let bx = -600, by = -20, bz = 40; 
+        
+        // Robot Inverse Kinematics (IK) State
+        let tx = -100, ty = 0, tz = 140; // Target IK coords
+        let grabAmt = 0; // 0 = open, 1 = closed
+        
+        // Packaging Machine State
+        let headZ = 160; 
+        let packProg = 0; 
+        let indicatorColor = '#E74C3C'; // Red
+
+        // --- B. CHOREOGRAPHY TIMELINE ---
+        
+        if (t <= 0.7) {
+            // Idle
+            bx = -600;
+        } 
+        else if (t > 0.7 && t <= 1.4) {
+            // Box Enters
+            bx = lerp(-600, -100, (t - 0.7) / 0.7);
+        }
+        else if (t > 1.4 && t <= 2.1) {
+            // Robot Pick
+            bx = -100;
+            if (t <= 1.6) {
+                tz = lerp(140, 80, easeInOutQuad((t - 1.4) / 0.2));
+            } else if (t <= 1.8) {
+                tz = 80;
+                grabAmt = easeInOutQuad((t - 1.6) / 0.2);
+            } else {
+                tz = lerp(80, 140, easeInOutQuad((t - 1.8) / 0.3));
+                bz = tz - 40; // Box follows
+                grabAmt = 1;
+            }
+        }
+        else if (t > 2.1 && t <= 2.8) {
+            // Robot Transfer
+            let moveP = easeInOutQuad((Math.min(t, 2.5) - 2.1) / 0.4);
+            tx = lerp(-100, 20, moveP); // Move to packaging conveyor start
+            
+            if (t <= 2.5) {
+                tz = 140;
+                grabAmt = 1;
+                bx = tx; bz = tz - 40;
+            } else if (t <= 2.7) {
+                tz = lerp(140, 80, easeInOutQuad((t - 2.5) / 0.2));
+                grabAmt = 1;
+                bx = tx; bz = tz - 40;
+            } else {
+                tz = 80;
+                grabAmt = 1 - easeInOutQuad((t - 2.7) / 0.1);
+                bx = tx; bz = 40;
+            }
+        }
+        else if (t > 2.8 && t <= 3.6) {
+            // Box moves into packaging tunnel
+            bx = lerp(20, 200, (t - 2.8) / 0.8);
+            
+            // Robot resets smoothly
+            let resetP = easeInOutQuad(Math.min((t - 2.8) / 0.5, 1));
+            tx = lerp(20, -100, resetP);
+            tz = lerp(80, 140, resetP);
+        }
+        else if (t > 3.6 && t <= 4.1) {
+            // Packaging Process
+            bx = 200;
+            tx = -100; tz = 140; // Robot is reset
+            
+            if (t <= 3.75) {
+                headZ = lerp(160, 80, easeInOutQuad((t - 3.6) / 0.15));
+            } else if (t <= 3.95) {
+                headZ = 80;
+                indicatorColor = '#2ECC71'; // Green
+                packProg = 1; // Tape applied
+            } else {
+                headZ = lerp(80, 160, easeInOutQuad((t - 3.95) / 0.15));
+                indicatorColor = '#2ECC71';
+                packProg = 1;
+            }
+        }
+        else if (t > 4.1 && t <= 4.7) {
+            // Box Exits
+            packProg = 1;
+            tx = -100; tz = 140;
+            bx = lerp(200, 600, (t - 4.1) / 0.6);
+        }
+        else {
+            // Wrap around / Settle
+            packProg = 1;
+            tx = -100; tz = 140;
+            bx = 600;
+        }
+
+        // --- C. ROBOT INVERSE KINEMATICS (IK) ---
+        let rx = -60, ry = -140, rz = 20; // Robot shoulder joint origin
+        let dx = tx - rx, dy = ty - ry;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        let baseAngle = Math.atan2(dy, dx); 
+        let dz = tz - rz;
+        
+        let L1 = 120, L2 = 120; // Arm segment lengths
+        let distSq = dist*dist + dz*dz;
+        if(distSq > Math.pow(L1+L2, 2)) distSq = Math.pow(L1+L2 - 0.01, 2); 
+        
+        let angle2 = Math.acos((distSq - L1*L1 - L2*L2) / (2 * L1 * L2));
+        let angle1 = Math.atan2(dz, dist) - Math.atan2(L2 * Math.sin(angle2), L1 + L2 * Math.cos(angle2));
+        
+        let j1_dist = L1 * Math.cos(angle1);
+        let j1 = {
+            x: rx + j1_dist * Math.cos(baseAngle),
+            y: ry + j1_dist * Math.sin(baseAngle),
+            z: rz + L1 * Math.sin(angle1)
+        };
+
+        // --- D. RENDER SVG ARCHITECTURE (STRICT LAYER ORDER) ---
+        let innerSVG = "";
+
+        // 1. FACTORY PLATFORM
+        innerSVG += `<g id="platform">
+            ${drawBox3D(-550, -250, -20, 1200, 450, 20, '#EAE6DF', '#D1CCC3', '#B8B3A8')}
+            <!-- Simple Floor Line Grid for scale -->
+            <line x1="${project(-550, 0, 0).x}" y1="${project(-550, 0, 0).y}" x2="${project(650, 0, 0).x}" y2="${project(650, 0, 0).y}" stroke="rgba(0,0,0,0.03)" stroke-width="2"/>
+        </g>`;
+
+        // 2. PACKAGING MACHINE BACK WALL
+        // Spans x: 140 to 260, y: -80 to -30 (Behind conveyor)
+        innerSVG += `<g id="machine_back">
+            ${drawBox3D(140, -80, 0, 120, 50, 220, '#3A4750', '#2C3539', '#1E2529')}
+        </g>`;
+
+        // 3. ROBOT BASE
+        innerSVG += `<g id="robot_base">
+            ${drawBox3D(-90, -170, 0, 60, 60, 20, '#3A4750', '#2C3539', '#1E2529')}
+            <!-- Rotating cylinder base -->
+            <circle cx="${project(-60, -140, 20).x}" cy="${project(-60, -140, 20).y}" r="22" fill="#F5A623" />
+        </g>`;
+
+        // 4. CONVEYOR SYSTEM (CONTINUOUS PATH)
+        let beltOffset = (t * 200) % 40;
+        
+        // Input Conveyor (Ends at x = -100)
+        innerSVG += `<g id="input_conveyor">
+            ${drawBox3D(-550, -30, 0, 450, 60, 35, '#4A555C', '#364045', '#252D31')}
+            ${drawBox3D(-550, -26, 35, 450, 52, 5, '#252D31', '#1E2529', '#14191C')} <!-- Belt -->
+            <!-- Side Rails -->
+            ${drawBox3D(-550, -30, 40, 450, 4, 3, '#F5A623', '#D6891A', '#B57211')} 
+            ${drawBox3D(-550, 26, 40, 450, 4, 3, '#F5A623', '#D6891A', '#B57211')}
+        </g>`;
+
+        // Packaging / Output Conveyor (Starts at x = 20)
+        innerSVG += `<g id="output_conveyor">
+            ${drawBox3D(20, -30, 0, 630, 60, 35, '#4A555C', '#364045', '#252D31')}
+            ${drawBox3D(20, -26, 35, 630, 52, 5, '#252D31', '#1E2529', '#14191C')}
+            <!-- Side Rails -->
+            ${drawBox3D(20, -30, 40, 630, 4, 3, '#F5A623', '#D6891A', '#B57211')} 
+            ${drawBox3D(20, 26, 40, 630, 4, 3, '#F5A623', '#D6891A', '#B57211')}
+        </g>`;
+
+        // Conveyor Rollers (Animated visual details)
+        let rollers = "";
+        for (let x = -550 + beltOffset; x < 650; x += 40) {
+            if (x > -100 && x < 20) continue; // Gap for robot arm
+            let p1 = project(x, -26, 41);
+            let p2 = project(x, 26, 41);
+            rollers += `<line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#3A4750" stroke-width="2" />`;
+        }
+        innerSVG += `<g id="conveyor_rollers">${rollers}</g>`;
+
+        // Output Direction Arrow
+        let arrCenter = project(550, 0, 41);
+        innerSVG += `
+            <g transform="translate(${arrCenter.x}, ${arrCenter.y})">
+                <polygon points="0,-10 15,0 0,10" fill="#F5A623" opacity="0.8"/>
+                <rect x="-15" y="-3" width="15" height="6" fill="#F5A623" opacity="0.8"/>
+            </g>`;
+
+        // 5. THE HERO BOX
+        if (bx > -600 && bx < 600) {
+            innerSVG += `<g id="hero_box">
+                ${drawBox3D(bx, by, bz, 40, 40, 40, '#FFF3E0', '#E6DBC9', '#CCBEA9')}
+            `;
+            if (packProg > 0) {
+                // Packaging Tape applied
+                innerSVG += drawBox3D(bx + 16, by, bz + 40, 8, 40, 1.5, '#F5A623', '#D6891A', '#B57211');
+            }
+            innerSVG += `</g>`;
+        }
+
+        // 6. ROBOT ARM (Drawn over conveyor and box)
+        let p0 = project(rx, ry, rz);
+        let p1 = project(j1.x, j1.y, j1.z);
+        let p2 = project(tx, ty, tz);
+
+        innerSVG += `<g id="robot_arm">
+            <!-- Lower Arm -->
+            <line x1="${p0.x}" y1="${p0.y}" x2="${p1.x}" y2="${p1.y}" stroke="#F5A623" stroke-width="20" stroke-linecap="round"/>
+            <line x1="${p0.x}" y1="${p0.y}" x2="${p1.x}" y2="${p1.y}" stroke="#3A4750" stroke-width="12" stroke-linecap="round"/>
+            
+            <!-- Joints -->
+            <circle cx="${p0.x}" cy="${p0.y}" r="16" fill="#2C3539" />
+            <circle cx="${p1.x}" cy="${p1.y}" r="14" fill="#2C3539" />
+            
+            <!-- Upper Arm -->
+            <line x1="${p1.x}" y1="${p1.y}" x2="${p2.x}" y2="${p2.y}" stroke="#F5A623" stroke-width="16" stroke-linecap="round"/>
+            
+            <!-- Wrist & Gripper -->
+            <circle cx="${p2.x}" cy="${p2.y}" r="10" fill="#2C3539" />
+        </g>`;
+
+        // Gripper Claws
+        let clawW = 16 + (1 - grabAmt) * 16;
+        let gL = project(tx, ty - clawW, tz - 15);
+        let gR = project(tx, ty + clawW, tz - 15);
+        innerSVG += `<g id="robot_claws">
+            <line x1="${p2.x}" y1="${p2.y}" x2="${gL.x}" y2="${gL.y}" stroke="#2C3539" stroke-width="6" stroke-linecap="round"/>
+            <line x1="${p2.x}" y1="${p2.y}" x2="${gR.x}" y2="${gR.y}" stroke="#2C3539" stroke-width="6" stroke-linecap="round"/>
+        </g>`;
+
+        // 7. PACKAGING MACHINE HEAD (Inside the tunnel, moves down)
+        innerSVG += `<g id="machine_head">
+            ${drawBox3D(170, -20, headZ, 60, 40, 220-headZ, '#4A555C', '#364045', '#252D31')}
+            ${drawBox3D(180, -10, headZ - 5, 40, 20, 5, '#F5A623', '#D6891A', '#B57211')} <!-- Stamp plate -->
+        </g>`;
+
+        // 8. PACKAGING MACHINE FRONT LEGS (Creates the tunnel opening)
+        innerSVG += `<g id="machine_front_legs">
+            <!-- Left Front Leg -->
+            ${drawBox3D(140, 30, 0, 20, 20, 160, '#3A4750', '#2C3539', '#1E2529')}
+            <!-- Right Front Leg -->
+            ${drawBox3D(240, 30, 0, 20, 20, 160, '#3A4750', '#2C3539', '#1E2529')}
+        </g>`;
+
+        // 9. PACKAGING MACHINE ROOF (Covers the tunnel)
+        let indicator = project(200, -50, 220);
+        innerSVG += `<g id="machine_roof">
+            ${drawBox3D(140, -80, 160, 120, 130, 60, '#4A555C', '#364045', '#252D31')}
+            <!-- Indicator Light -->
+            <path d="M ${indicator.x - 8} ${indicator.y + 4} L ${indicator.x + 8} ${indicator.y - 4} L ${indicator.x + 8} ${indicator.y - 12} L ${indicator.x - 8} ${indicator.y - 4} Z" fill="${indicatorColor}"/>
+            <ellipse cx="${indicator.x}" cy="${indicator.y - 8}" rx="9" ry="5" fill="${indicatorColor}" filter="blur(1px)"/>
+        </g>`;
+
+        // Render to DOM
+        svg.innerHTML = innerSVG;
+
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emergency Sequence Line Animation</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: transparent; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Test Background (Remove or keep as needed. Using a dark bg to show white strokes) */
+        body { background-color: #1a1a1f; }
+
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16:9 Aspect Ratio */
+            max-height: 56.25vw;
+            position: relative;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+
+        /* Default SVG path styles */
+        path, line, circle, rect {
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+        .main-line { stroke: #FFFFFF; stroke-width: 14; }
+        .thin-line { stroke: #FFFFFF; stroke-width: 8; }
+        .accent-line { stroke: #E63946; stroke-width: 14; }
+        .accent-thin { stroke: #E63946; stroke-width: 10; }
+
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <svg id="canvas" viewBox="0 0 3840 2160">
+        <!-- Everything is centered around (1920, 1080) -->
+        <g id="scene"></g>
+    </svg>
+</div>
+
+<script>
+    const svgLayer = document.getElementById('scene');
+    
+    // ==========================================
+    // 1. ENGINE & UTILITIES
+    // ==========================================
+    const DURATION = 10.0; // 10-Second Story
+    const FPS = 30;
+
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function easeInOutSine(t) { return -(Math.cos(Math.PI * t) - 1) / 2; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function createPath(id, d, className) {
+        let el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        el.setAttribute("id", id);
+        el.setAttribute("d", d);
+        el.setAttribute("class", className);
+        svgLayer.appendChild(el);
+        
+        let length = el.getTotalLength();
+        el.setAttribute("stroke-dasharray", length);
+        el.setAttribute("stroke-dashoffset", length); 
+        return { el, length };
+    }
+
+    function createCircle(id, cx, cy, r, className) {
+        let el = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        el.setAttribute("id", id);
+        el.setAttribute("cx", cx);
+        el.setAttribute("cy", cy);
+        el.setAttribute("r", r);
+        el.setAttribute("class", className);
+        svgLayer.appendChild(el);
+        
+        let length = 2 * Math.PI * r;
+        el.setAttribute("stroke-dasharray", length);
+        el.setAttribute("stroke-dashoffset", length);
+        return { el, length };
+    }
+
+    function drawStroke(pathObj, progress, fade = 1) {
+        let offset = pathObj.length * (1 - progress);
+        pathObj.el.setAttribute("stroke-dashoffset", offset);
+        pathObj.el.setAttribute("opacity", fade);
+    }
+
+    // ==========================================
+    // 2. SVG PATH DEFINITIONS (Centered on 1920, 1080)
+    // ==========================================
+    let p_cx = 1920, p_cy = 1080;
+    const pathData = {
+        // STAGE 01: PHONE (0s - 2.2s)
+        p_body: `M ${p_cx-90} ${p_cy-160} L ${p_cx+90} ${p_cy-160} A 40 40 0 0 1 ${p_cx+130} ${p_cy-120} L ${p_cx+130} ${p_cy+120} A 40 40 0 0 1 ${p_cx+90} ${p_cy+160} L ${p_cx-90} ${p_cy+160} A 40 40 0 0 1 ${p_cx-130} ${p_cy+120} L ${p_cx-130} ${p_cy-120} A 40 40 0 0 1 ${p_cx-90} ${p_cy-160} Z`,
+        p_speaker: `M ${p_cx-30} ${p_cy-110} L ${p_cx+30} ${p_cy-110}`,
+        p_screen: `M ${p_cx-90} ${p_cy-60} L ${p_cx+90} ${p_cy-60} L ${p_cx+90} ${p_cy+70} L ${p_cx-90} ${p_cy+70} Z`,
+        p_crossH: `M ${p_cx-30} ${p_cy+5} L ${p_cx+30} ${p_cy+5}`,
+        p_crossV: `M ${p_cx} ${p_cy-25} L ${p_cx} ${p_cy+35}`,
+        p_pulse1: `M ${p_cx} ${p_cy-280} A 280 280 0 0 1 ${p_cx+280} ${p_cy} A 280 280 0 0 1 ${p_cx} ${p_cy+280} A 280 280 0 0 1 ${p_cx-280} ${p_cy} A 280 280 0 0 1 ${p_cx} ${p_cy-280}`,
+        
+        // TRANSITION 1 (Pulse connecting to Ambulance)
+        t1_line: `M ${p_cx-500} ${p_cy+160} L ${p_cx-280} ${p_cy+160}`,
+
+        // STAGE 02: AMBULANCE REBUILT WITH CHASSIS & WHEEL ARCHES
+        // Starts back bottom -> Up Roof -> Down Hood -> Front Bumper -> Bottom w/ Arches -> Close
+        a_body: `M ${p_cx-280} ${p_cy+160} L ${p_cx-280} ${p_cy-40} L ${p_cx-240} ${p_cy-120} L ${p_cx+60} ${p_cy-120} L ${p_cx+140} ${p_cy-20} L ${p_cx+280} ${p_cy-20} A 20 20 0 0 1 ${p_cx+300} ${p_cy} L ${p_cx+300} ${p_cy+140} A 20 20 0 0 1 ${p_cx+280} ${p_cy+160} L ${p_cx+215} ${p_cy+160} A 55 55 0 0 1 ${p_cx+105} ${p_cy+160} L ${p_cx-105} ${p_cy+160} A 55 55 0 0 1 ${p_cx-215} ${p_cy+160} Z`,
+        a_cabLine: `M ${p_cx-30} ${p_cy-120} L ${p_cx-30} ${p_cy+160}`,
+        a_windowCab: `M ${p_cx+10} ${p_cy-20} L ${p_cx+10} ${p_cy-100} L ${p_cx+50} ${p_cy-100} L ${p_cx+120} ${p_cy-20} Z`,
+        
+        // Medical Cross on the Box
+        a_crossH: `M ${p_cx-185} ${p_cy+20} L ${p_cx-125} ${p_cy+20}`,
+        a_crossV: `M ${p_cx-155} ${p_cy-10} L ${p_cx-155} ${p_cy+50}`,
+        
+        // Light & Speed lines
+        a_light: `M ${p_cx-160} ${p_cy-120} L ${p_cx-160} ${p_cy-150} A 20 20 0 0 1 ${p_cx-120} ${p_cy-150} L ${p_cx-120} ${p_cy-120}`,
+        a_speed1: `M ${p_cx-360} ${p_cy+60} L ${p_cx-500} ${p_cy+60}`,
+        a_speed2: `M ${p_cx-320} ${p_cy+120} L ${p_cx-420} ${p_cy+120}`,
+
+        // TRANSITION 2 (Speedline merges into Hospital Base)
+        t2_line: `M ${p_cx-400} ${p_cy+260} L ${p_cx+400} ${p_cy+260}`,
+
+        // STAGE 03: HOSPITAL
+        h_bodyCenter: `M ${p_cx-150} ${p_cy+260} L ${p_cx-150} ${p_cy-160} L ${p_cx+150} ${p_cy-160} L ${p_cx+150} ${p_cy+260}`,
+        h_bodyLeft: `M ${p_cx-150} ${p_cy-40} L ${p_cx-300} ${p_cy-40} L ${p_cx-300} ${p_cy+260}`,
+        h_bodyRight: `M ${p_cx+150} ${p_cy-40} L ${p_cx+300} ${p_cy-40} L ${p_cx+300} ${p_cy+260}`,
+        h_roofCenter: `M ${p_cx-180} ${p_cy-160} L ${p_cx+180} ${p_cy-160}`,
+        h_door: `M ${p_cx-60} ${p_cy+260} L ${p_cx-60} ${p_cy+80} A 60 60 0 0 1 ${p_cx+60} ${p_cy+80} L ${p_cx+60} ${p_cy+260}`,
+        h_doorLine: `M ${p_cx} ${p_cy+140} L ${p_cx} ${p_cy+260}`,
+        h_win1: `M ${p_cx-250} ${p_cy+40} L ${p_cx-200} ${p_cy+40} L ${p_cx-200} ${p_cy+100} L ${p_cx-250} ${p_cy+100} Z`,
+        h_win2: `M ${p_cx+200} ${p_cy+40} L ${p_cx+250} ${p_cy+40} L ${p_cx+250} ${p_cy+100} L ${p_cx+200} ${p_cy+100} Z`,
+        h_crossH: `M ${p_cx-35} ${p_cy-70} L ${p_cx+35} ${p_cy-70}`,
+        h_crossV: `M ${p_cx} ${p_cy-105} L ${p_cx} ${p_cy-35}`,
+
+        // TRANSITION 3
+        t3_line: `M ${p_cx} ${p_cy+140} L ${p_cx} ${p_cy-180}`,
+
+        // STAGE 04: DOCTOR
+        d_head: `M ${p_cx} ${p_cy-180} A 80 80 0 1 1 ${p_cx-0.1} ${p_cy-180}`, 
+        d_neck: `M ${p_cx-40} ${p_cy-100} L ${p_cx-40} ${p_cy-60} L ${p_cx+40} ${p_cy-60} L ${p_cx+40} ${p_cy-100}`,
+        d_shoulder: `M ${p_cx-40} ${p_cy-60} L ${p_cx-200} ${p_cy} A 40 40 0 0 0 ${p_cx-240} ${p_cy+40} L ${p_cx-240} ${p_cy+280}`,
+        d_shoulderR: `M ${p_cx+40} ${p_cy-60} L ${p_cx+200} ${p_cy} A 40 40 0 0 1 ${p_cx+240} ${p_cy+40} L ${p_cx+240} ${p_cy+280}`,
+        d_collarL: `M ${p_cx-40} ${p_cy-60} L ${p_cx-120} ${p_cy+60} L ${p_cx-40} ${p_cy+100}`,
+        d_collarR: `M ${p_cx+40} ${p_cy-60} L ${p_cx+120} ${p_cy+60} L ${p_cx+40} ${p_cy+100}`,
+        d_coatLine: `M ${p_cx-40} ${p_cy+100} L ${p_cx} ${p_cy+140} L ${p_cx} ${p_cy+280}`,
+        d_coatLineR: `M ${p_cx+40} ${p_cy+100} L ${p_cx} ${p_cy+140}`,
+        d_stethLoop: `M ${p_cx-80} ${p_cy+10} A 80 120 0 0 0 ${p_cx+80} ${p_cy+10}`,
+        d_stethLine: `M ${p_cx+80} ${p_cy+10} L ${p_cx+80} ${p_cy-50}`,
+        d_stethLineL: `M ${p_cx-80} ${p_cy+10} L ${p_cx-80} ${p_cy-50}`,
+        d_stethDrop: `M ${p_cx} ${p_cy+130} L ${p_cx-60} ${p_cy+220}`,
+        
+        // Final Connectors
+        s_line1: `M ${p_cx-900} ${p_cy} L ${p_cx-600} ${p_cy}`,
+        s_line2: `M ${p_cx-300} ${p_cy} L ${p_cx} ${p_cy}`,
+        s_line3: `M ${p_cx+300} ${p_cy} L ${p_cx+600} ${p_cy}`
+    };
+
+    // ==========================================
+    // 3. SVG OBJECT INSTANTIATION
+    // ==========================================
+    const P = {}; 
+    
+    // Phone
+    P.pBody = createPath("p_body", pathData.p_body, "main-line");
+    P.pSpeak = createPath("p_speaker", pathData.p_speaker, "thin-line");
+    P.pScr = createPath("p_screen", pathData.p_screen, "main-line");
+    P.pCrH = createPath("p_crossH", pathData.p_crossH, "accent-line");
+    P.pCrV = createPath("p_crossV", pathData.p_crossV, "accent-line");
+    P.pPulse = createPath("p_pulse1", pathData.p_pulse1, "thin-line");
+
+    P.t1 = createPath("t1_line", pathData.t1_line, "main-line");
+
+    // Ambulance
+    P.aBody = createPath("a_body", pathData.a_body, "main-line");
+    P.aCabLn = createPath("a_cabLine", pathData.a_cabLine, "main-line");
+    P.aWinCb = createPath("a_windowCab", pathData.a_windowCab, "main-line");
+    P.aWh1 = createCircle("a_wh1", p_cx-160, p_cy+160, 35, "main-line");
+    P.aWh1In = createCircle("a_wh1_in", p_cx-160, p_cy+160, 12, "main-line");
+    P.aWh2 = createCircle("a_wh2", p_cx+160, p_cy+160, 35, "main-line");
+    P.aWh2In = createCircle("a_wh2_in", p_cx+160, p_cy+160, 12, "main-line");
+    P.aCrH = createPath("a_crossH", pathData.a_crossH, "accent-line");
+    P.aCrV = createPath("a_crossV", pathData.a_crossV, "accent-line");
+    P.aLgt = createPath("a_light", pathData.a_light, "accent-line");
+    P.aSpd1 = createPath("a_speed1", pathData.a_speed1, "thin-line");
+    P.aSpd2 = createPath("a_speed2", pathData.a_speed2, "thin-line");
+
+    P.t2 = createPath("t2_line", pathData.t2_line, "main-line");
+
+    // Hospital
+    P.hBCen = createPath("h_bc", pathData.h_bodyCenter, "main-line");
+    P.hBL = createPath("h_bl", pathData.h_bodyLeft, "main-line");
+    P.hBR = createPath("h_br", pathData.h_bodyRight, "main-line");
+    P.hRCen = createPath("h_rc", pathData.h_roofCenter, "main-line");
+    P.hDoor = createPath("h_door", pathData.h_door, "main-line");
+    P.hDLn = createPath("h_dl", pathData.h_doorLine, "main-line");
+    P.hWin1 = createPath("h_w1", pathData.h_win1, "main-line");
+    P.hWin2 = createPath("h_w2", pathData.h_win2, "main-line");
+    P.hCrH = createPath("h_ch", pathData.h_crossH, "accent-line");
+    P.hCrV = createPath("h_cv", pathData.h_crossV, "accent-line");
+
+    P.t3 = createPath("t3_line", pathData.t3_line, "main-line");
+
+    // Doctor
+    P.dHead = createPath("d_h", pathData.d_head, "main-line");
+    P.dNeck = createPath("d_n", pathData.d_neck, "main-line");
+    P.dShoL = createPath("d_sl", pathData.d_shoulder, "main-line");
+    P.dShoR = createPath("d_sr", pathData.d_shoulderR, "main-line");
+    P.dColL = createPath("d_cl", pathData.d_collarL, "main-line");
+    P.dColR = createPath("d_cr", pathData.d_collarR, "main-line");
+    P.dCtL = createPath("d_ctl", pathData.d_coatLine, "main-line");
+    P.dCtR = createPath("d_ctr", pathData.d_coatLineR, "main-line");
+    P.dStLp = createPath("d_slp", pathData.d_stethLoop, "accent-line");
+    P.dStLL = createPath("d_sll", pathData.d_stethLineL, "accent-line");
+    P.dStLR = createPath("d_slr", pathData.d_stethLine, "accent-line");
+    P.dStDr = createPath("d_sd", pathData.d_stethDrop, "accent-line");
+    P.dStB = createCircle("d_sb", p_cx-60, p_cy+240, 20, "accent-line");
+
+    // Connectors
+    P.s1 = createPath("s1", pathData.s_line1, "thin-line");
+    P.s2 = createPath("s2", pathData.s_line2, "thin-line");
+    P.s3 = createPath("s3", pathData.s_line3, "thin-line");
+
+    // Grouping for Transformations
+    const gPhone = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const gAmbulance = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const gHospital = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    const gDoctor = document.createElementNS("http://www.w3.org/2000/svg", "g");
+    
+    [P.pBody, P.pSpeak, P.pScr, P.pCrH, P.pCrV, P.pPulse].forEach(p => gPhone.appendChild(p.el));
+    [P.aBody, P.aCabLn, P.aWinCb, P.aWh1, P.aWh1In, P.aWh2, P.aWh2In, P.aCrH, P.aCrV, P.aLgt, P.aSpd1, P.aSpd2].forEach(p => gAmbulance.appendChild(p.el));
+    [P.hBCen, P.hBL, P.hBR, P.hRCen, P.hDoor, P.hDLn, P.hWin1, P.hWin2, P.hCrH, P.hCrV].forEach(p => gHospital.appendChild(p.el));
+    [P.dHead, P.dNeck, P.dShoL, P.dShoR, P.dColL, P.dColR, P.dCtL, P.dCtR, P.dStLp, P.dStLL, P.dStLR, P.dStDr, P.dStB].forEach(p => gDoctor.appendChild(p.el));
+
+    svgLayer.appendChild(gPhone);
+    svgLayer.appendChild(gAmbulance);
+    svgLayer.appendChild(gHospital);
+    svgLayer.appendChild(gDoctor);
+
+    // ==========================================
+    // 4. ANIMATION RENDER LOOP
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let t = (timestamp - startTime) / 1000;
+        
+        if (t > DURATION) t = DURATION; // Hold final frame
+
+        // --- STAGE 01: PHONE (0.0s - 2.2s) ---
+        let p_base = clamp((t - 0.15) / 1.05);
+        let p_det = clamp((t - 1.20) / 0.35);
+        let p_ring = clamp((t - 1.55) / 0.35);
+        let phoneFade = 1 - clamp((t - 2.2) / 0.4);
+
+        drawStroke(P.pBody, easeOutCubic(p_base), phoneFade);
+        drawStroke(P.pSpeak, easeOutCubic(p_det), phoneFade);
+        drawStroke(P.pScr, easeOutCubic(p_det), phoneFade);
+        drawStroke(P.pCrH, easeOutCubic(p_det), phoneFade);
+        drawStroke(P.pCrV, easeOutCubic(p_det), phoneFade);
+        
+        let ringPulse = 1;
+        if(t > 1.9 && t < 2.2) ringPulse = 1 + easeInOutSine((t-1.9)/0.3) * 0.1;
+        drawStroke(P.pPulse, easeOutCubic(p_ring), phoneFade * (1 - p_ring * 0.5));
+        P.pPulse.el.setAttribute("transform", `scale(${ringPulse})`);
+        P.pPulse.el.setAttribute("transform-origin", `${p_cx} ${p_cy}`);
+
+        // --- TRANSITION 1: (2.2s - 2.6s) ---
+        let t1_prog = clamp((t - 2.2) / 0.4);
+        drawStroke(P.t1, easeOutCubic(t1_prog), 1 - clamp((t - 3.2)/0.4)); // Fades out as ambulance solidifies
+
+        // --- STAGE 02: AMBULANCE (2.6s - 4.4s) ---
+        let a_base = clamp((t - 2.6) / 0.6);
+        let a_wh = clamp((t - 3.0) / 0.4);
+        let a_win = clamp((t - 3.2) / 0.4);
+        let a_crs = clamp((t - 3.4) / 0.4);
+        let a_lgt = clamp((t - 3.6) / 0.3);
+        let a_spd = clamp((t - 3.9) / 0.3);
+
+        let ambFade = 1 - clamp((t - 4.6) / 0.3); 
+
+        drawStroke(P.aBody, easeOutCubic(a_base), ambFade);
+        drawStroke(P.aCabLn, easeOutCubic(a_base), ambFade);
+        drawStroke(P.aWh1, easeOutCubic(a_wh), ambFade);
+        drawStroke(P.aWh1In, easeOutCubic(a_wh), ambFade);
+        drawStroke(P.aWh2, easeOutCubic(a_wh), ambFade);
+        drawStroke(P.aWh2In, easeOutCubic(a_wh), ambFade);
+        drawStroke(P.aWinCb, easeOutCubic(a_win), ambFade);
+        drawStroke(P.aCrH, easeOutCubic(a_crs), ambFade);
+        drawStroke(P.aCrV, easeOutCubic(a_crs), ambFade);
+        drawStroke(P.aLgt, easeOutCubic(a_lgt), ambFade);
+        drawStroke(P.aSpd1, easeOutCubic(a_spd), ambFade);
+        drawStroke(P.aSpd2, easeOutCubic(a_spd), ambFade);
+
+        // Ambulance Movement (Drives forward smoothly)
+        let ambMoveX = 0;
+        if(t > 3.9 && t < 4.4) ambMoveX = easeInOutCubic((t-3.9)/0.5) * 50;
+        if(t >= 4.4) ambMoveX = 50 + easeInOutCubic(clamp((t-4.4)/0.5)) * 100;
+        gAmbulance.setAttribute("transform", `translate(${ambMoveX}, 0)`);
+        
+        // Light Pulse
+        let lightFade = ambFade;
+        if (t > 3.9 && t < 4.4) lightFade *= 0.5 + Math.sin(t * 20) * 0.5;
+        P.aLgt.el.setAttribute("opacity", lightFade);
+
+        // --- TRANSITION 2: (4.4s - 4.9s) ---
+        let t2_prog = clamp((t - 4.4) / 0.5);
+        drawStroke(P.t2, easeOutCubic(t2_prog), 1 - clamp((t - 5.0)/0.2));
+
+        // --- STAGE 03: HOSPITAL (4.9s - 6.8s) ---
+        let h_base = clamp((t - 4.9) / 0.6);
+        let h_side = clamp((t - 5.2) / 0.5);
+        let h_door = clamp((t - 5.5) / 0.4);
+        let h_win = clamp((t - 5.8) / 0.4);
+        let h_crs = clamp((t - 6.1) / 0.4);
+
+        let hosFade = 1 - clamp((t - 7.0) / 0.3);
+
+        drawStroke(P.hBCen, easeOutCubic(h_base), hosFade);
+        drawStroke(P.hRCen, easeOutCubic(h_base), hosFade);
+        drawStroke(P.hBL, easeOutCubic(h_side), hosFade);
+        drawStroke(P.hBR, easeOutCubic(h_side), hosFade);
+        drawStroke(P.hDoor, easeOutCubic(h_door), hosFade);
+        drawStroke(P.hDLn, easeOutCubic(h_door), hosFade);
+        drawStroke(P.hWin1, easeOutCubic(h_win), hosFade);
+        drawStroke(P.hWin2, easeOutCubic(h_win), hosFade);
+        drawStroke(P.hCrH, easeOutCubic(h_crs), hosFade);
+        drawStroke(P.hCrV, easeOutCubic(h_crs), hosFade);
+
+        if(t > 6.4 && t < 6.8) {
+            let hPulse = 1 + easeInOutSine((t-6.4)/0.4) * 0.15;
+            P.hCrH.el.setAttribute("transform", `scale(${hPulse})`);
+            P.hCrH.el.setAttribute("transform-origin", `${p_cx} ${p_cy-70}`);
+            P.hCrV.el.setAttribute("transform", `scale(${hPulse})`);
+            P.hCrV.el.setAttribute("transform-origin", `${p_cx} ${p_cy-70}`);
+        } else {
+            P.hCrH.el.removeAttribute("transform");
+            P.hCrV.el.removeAttribute("transform");
+        }
+
+        // --- TRANSITION 3: (6.8s - 7.3s) ---
+        let t3_prog = clamp((t - 6.8) / 0.5);
+        drawStroke(P.t3, easeOutCubic(t3_prog), 1 - clamp((t - 7.5)/0.2));
+
+        // --- STAGE 04: DOCTOR (7.3s - 9.2s) ---
+        let d_head = clamp((t - 7.3) / 0.5);
+        let d_neck = clamp((t - 7.6) / 0.3);
+        let d_body = clamp((t - 7.8) / 0.6);
+        let d_coat = clamp((t - 8.1) / 0.4);
+        let d_stet = clamp((t - 8.5) / 0.5);
+
+        let dScale = 1;
+        let dX = 0;
+        if(t > 9.2) {
+            let sumProg = easeInOutCubic(clamp((t - 9.2)/0.6));
+            dScale = lerp(1, 0.5, sumProg);
+            dX = lerp(0, 1000, sumProg); 
+        }
+
+        gDoctor.setAttribute("transform", `translate(${dX}, 0) scale(${dScale})`);
+        gDoctor.setAttribute("transform-origin", `${p_cx} ${p_cy}`);
+
+        drawStroke(P.dHead, easeOutCubic(d_head), 1);
+        drawStroke(P.dNeck, easeOutCubic(d_neck), 1);
+        drawStroke(P.dShoL, easeOutCubic(d_body), 1);
+        drawStroke(P.dShoR, easeOutCubic(d_body), 1);
+        drawStroke(P.dColL, easeOutCubic(d_coat), 1);
+        drawStroke(P.dColR, easeOutCubic(d_coat), 1);
+        drawStroke(P.dCtL, easeOutCubic(d_coat), 1);
+        drawStroke(P.dCtR, easeOutCubic(d_coat), 1);
+        drawStroke(P.dStLp, easeOutCubic(d_stet), 1);
+        drawStroke(P.dStLL, easeOutCubic(d_stet), 1);
+        drawStroke(P.dStLR, easeOutCubic(d_stet), 1);
+        drawStroke(P.dStDr, easeOutCubic(d_stet), 1);
+        drawStroke(P.dStB, easeOutCubic(d_stet), 1);
+
+        if(t > 8.9 && t < 9.2) {
+            let sPulse = 1 + easeInOutSine((t-8.9)/0.3) * 0.2;
+            P.dStB.el.setAttribute("transform", `scale(${sPulse})`);
+            P.dStB.el.setAttribute("transform-origin", `${p_cx-60} ${p_cy+240}`);
+        } else {
+            P.dStB.el.removeAttribute("transform");
+        }
+
+        // --- FINAL SUMMARY SCENE (9.2s - 10.0s) ---
+        if (t > 9.2) {
+            let sumProg = easeInOutCubic(clamp((t - 9.2)/0.6));
+            
+            [P.pBody, P.pSpeak, P.pScr, P.pCrH, P.pCrV].forEach(p => drawStroke(p, 1, sumProg));
+            [P.aBody, P.aCabLn, P.aWinCb, P.aWh1, P.aWh1In, P.aWh2, P.aWh2In, P.aCrH, P.aCrV].forEach(p => drawStroke(p, 1, sumProg));
+            [P.hBCen, P.hBL, P.hBR, P.hRCen, P.hDoor, P.hDLn, P.hWin1, P.hWin2, P.hCrH, P.hCrV].forEach(p => drawStroke(p, 1, sumProg));
+
+            gPhone.setAttribute("transform", `translate(${lerp(0, -1000, sumProg)}, 0) scale(${lerp(1, 0.5, sumProg)})`);
+            gPhone.setAttribute("transform-origin", `${p_cx} ${p_cy}`);
+
+            gAmbulance.setAttribute("transform", `translate(${lerp(150, -350, sumProg)}, 0) scale(${lerp(1, 0.5, sumProg)})`);
+            gAmbulance.setAttribute("transform-origin", `${p_cx} ${p_cy}`);
+
+            gHospital.setAttribute("transform", `translate(${lerp(0, 350, sumProg)}, 0) scale(${lerp(1, 0.5, sumProg)})`);
+            gHospital.setAttribute("transform-origin", `${p_cx} ${p_cy}`);
+
+            let lineProg = clamp((t - 9.6)/0.4);
+            drawStroke(P.s1, easeOutCubic(lineProg), 1);
+            drawStroke(P.s2, easeOutCubic(lineProg), 1);
+            drawStroke(P.s3, easeOutCubic(lineProg), 1);
+
+            if (t > 9.7) {
+                let synPulse = 1 + Math.sin((t-9.7)*Math.PI*2) * 0.05 * (t < 10.2 ? 1 : 0);
+                [gPhone, gAmbulance, gHospital, gDoctor].forEach(g => {
+                    let cScale = g.getAttribute("transform").match(/scale\(([^)]+)\)/)[1];
+                    let cTrans = g.getAttribute("transform").match(/translate\(([^)]+)\)/)[1];
+                    g.setAttribute("transform", `translate(${cTrans}) scale(${parseFloat(cScale) * synPulse})`);
+                });
+            }
+        }
+
+        if (t < DURATION) {
+            requestAnimationFrame(render);
+        }
+    }
+
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

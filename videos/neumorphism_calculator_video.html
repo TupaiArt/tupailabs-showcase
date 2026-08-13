@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neumorphism Tactile Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #D9DDE0; /* Base matte color */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* 16:9 Stage Canvas */
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16/9 aspect ratio limit */
+            max-height: 56.25vw;
+            background-color: #D9DDE0;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Calculator Body */
+        .calculator {
+            width: 430px;
+            padding: 36px 32px;
+            border-radius: 36px;
+            background: #D9DDE0;
+            /* Soft outer shadow + subtle highlight for body depth */
+            box-shadow: 
+                24px 24px 48px rgba(180, 186, 194, 0.55), 
+                -24px -24px 48px rgba(254, 255, 255, 0.7),
+                inset 2px 2px 4px rgba(254, 255, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 32px;
+        }
+
+        /* Display Surface (Inset) */
+        .display-container {
+            width: 100%;
+            height: 110px;
+            border-radius: 20px;
+            background: #D9DDE0;
+            /* Initial inset shadow */
+            box-shadow: 
+                inset 6px 6px 16px rgba(180, 186, 194, 0.8), 
+                inset -6px -6px 16px rgba(254, 255, 255, 0.9);
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            padding: 0 28px;
+            overflow: hidden;
+        }
+
+        .display-text {
+            font-size: 72px;
+            font-weight: 300;
+            color: #4A535E;
+            letter-spacing: -2px;
+            transform-origin: right center;
+            will-change: transform, opacity;
+        }
+
+        /* Keypad Grid */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 20px;
+        }
+
+        /* Button Base */
+        .btn {
+            height: 72px;
+            border-radius: 20px;
+            background: #D9DDE0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 28px;
+            font-weight: 500;
+            color: #636E7B;
+            /* Dynamic shadow will be applied via JS, default is set here */
+            box-shadow: 
+                8px 8px 16px rgba(180, 186, 194, 0.65), 
+                -8px -8px 16px rgba(254, 255, 255, 0.8);
+            will-change: transform, box-shadow;
+        }
+
+        .btn.zero {
+            grid-column: span 2;
+            justify-content: flex-start;
+            padding-left: 30px;
+        }
+
+        /* Subtle color variations for functional buttons */
+        .btn.op { color: #6A859E; font-weight: 600; font-size: 32px; }
+        .btn.sys { color: #8C99A6; font-weight: 400; }
+        .btn.eq { color: #E07A5F; font-weight: 600; font-size: 36px; }
+
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <div class="calculator">
+        <!-- Inset Display -->
+        <div class="display-container" id="displayContainer">
+            <div class="display-text" id="dispText">0</div>
+        </div>
+
+        <!-- Tactile Keypad -->
+        <div class="keypad">
+            <div class="btn sys" id="btn-ac">AC</div>
+            <div class="btn sys">±</div>
+            <div class="btn sys">%</div>
+            <div class="btn op">÷</div>
+
+            <div class="btn">7</div>
+            <div class="btn">8</div>
+            <div class="btn">9</div>
+            <div class="btn op">×</div>
+
+            <div class="btn">4</div>
+            <div class="btn">5</div>
+            <div class="btn">6</div>
+            <div class="btn op">−</div>
+
+            <div class="btn" id="btn-1">1</div>
+            <div class="btn" id="btn-2">2</div>
+            <div class="btn" id="btn-3">3</div>
+            <div class="btn op" id="btn-plus">+</div>
+
+            <div class="btn zero">0</div>
+            <div class="btn">.</div>
+            <div class="btn eq" id="btn-eq">=</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. ENGINE & EASING FUNCTIONS
+    // ==========================================
+    const DURATION = 5.0; // 5-second seamless loop
+
+    const easings = {
+        easeOutQuad: t => t * (2 - t),
+        easeInOutSine: t => -(Math.cos(Math.PI * t) - 1) / 2
+    };
+
+    // Envelope Generator: Menghitung pressure/depression 0.0 -> 1.0 -> 0.0
+    // Attack, Hold, Release phases.
+    function getPressFactor(t, start, dur) {
+        if (t < start || t > start + dur) return 0;
+        let progress = (t - start) / dur;
+        
+        // 0.0 - 0.2: menekan ke bawah
+        if (progress < 0.2) return easings.easeOutQuad(progress / 0.2);
+        // 0.2 - 0.7: ditahan
+        if (progress < 0.7) return 1;
+        // 0.7 - 1.0: dilepas kembali ke atas
+        return 1 - easings.easeOutQuad((progress - 0.7) / 0.3);
+    }
+
+    // ==========================================
+    // 2. TACTILE NEUMORPHIC SHADOW INTERPOLATION
+    // ==========================================
+    // Transisi shadow dari 'Outer Raised' (p=0) menjadi 'Inner Depressed' (p=1)
+    // Tanpa jeda CSS delay, di-render secara presisi frame-by-frame
+    function applyButtonState(id, p, maxScale = 0.94) {
+        const el = document.getElementById(id);
+        if (!el) return;
+
+        // Micro-displacement
+        let scale = 1 - (1 - maxScale) * p;
+        let y = 3.5 * p; 
+
+        // Crossfading Shadow Alpha
+        let outD = 0.65 * (1 - p); // Outer Dark
+        let outL = 0.8 * (1 - p);  // Outer Light
+        let inD = 0.7 * p;         // Inner Dark
+        let inL = 0.9 * p;         // Inner Light
+
+        el.style.transform = `translateY(${y}px) scale(${scale})`;
+        el.style.boxShadow = `
+            8px 8px 16px rgba(180, 186, 194, ${outD}),
+            -8px -8px 16px rgba(254, 255, 255, ${outL}),
+            inset 6px 6px 12px rgba(180, 186, 194, ${inD}),
+            inset -6px -6px 12px rgba(254, 255, 255, ${inL})
+        `;
+    }
+
+    // ==========================================
+    // 3. DISPLAY SEQUENCE LOGIC
+    // ==========================================
+    function getDisplayState(t) {
+        if (t < 0.8) return { text: "0", tc: 0 };
+        if (t < 1.25) return { text: "1", tc: 0.8 };
+        if (t < 1.75) return { text: "1 +", tc: 1.25 };
+        if (t < 2.2) return { text: "1 + 2", tc: 1.75 };
+        if (t < 3.8) return { text: "3", tc: 2.2 };
+        return { text: "0", tc: 3.8 };
+    }
+
+    // ==========================================
+    // 4. MAIN ANIMATION LOOP
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let t = ((timestamp - startTime) / 1000) % DURATION;
+
+        // --- A. BUTTON SEQUENCE EVALUATION ---
+        // Durasi interaksi rata-rata 0.35s
+        let p1    = getPressFactor(t, 0.70, 0.35);
+        let pPlus = getPressFactor(t, 1.15, 0.35);
+        let p2    = getPressFactor(t, 1.65, 0.35);
+        let pEq   = getPressFactor(t, 2.10, 0.35);
+        let p3    = getPressFactor(t, 3.20, 0.35); // Tactile Replay
+        let pAc   = getPressFactor(t, 3.70, 0.35);
+
+        // Render Buttons (Tombol = mendapat depresi lebih dalam: scale 0.92)
+        applyButtonState('btn-1', p1);
+        applyButtonState('btn-plus', pPlus);
+        applyButtonState('btn-2', p2);
+        applyButtonState('btn-eq', pEq, 0.92); 
+        applyButtonState('btn-3', p3);
+        applyButtonState('btn-ac', pAc);
+
+        // --- B. DISPLAY RESULT HIGHLIGHT ---
+        // Angka "3" membesar sedikit (2.6s - 3.2s)
+        let resultScale = 1;
+        let highlightGlow = 0;
+        
+        if (t > 2.6 && t < 3.2) {
+            let p = (t - 2.6) / 0.6;
+            let pulse = Math.sin(p * Math.PI); // Smooth curve 0 -> 1 -> 0
+            resultScale = 1 + (0.138 * pulse); // 72px -> ~82px
+            highlightGlow = pulse;
+        }
+
+        // --- C. DISPLAY TEXT UPDATE & ANIMATION ---
+        const dispText = document.getElementById('dispText');
+        const state = getDisplayState(t);
+        
+        let timeSinceUpdate = t - state.tc;
+        let txtY = 0;
+        let txtOpa = 1;
+
+        // Animasi Y-offset kecil & Opacity fade saat angka berubah (durasi 0.15s)
+        if (timeSinceUpdate > 0 && timeSinceUpdate < 0.15 && state.tc > 0) {
+            let pt = timeSinceUpdate / 0.15;
+            txtY = (1 - pt) * 6; // Bergerak 6px ke atas menuju 0
+            txtOpa = 0.4 + (0.6 * pt);
+        }
+
+        dispText.innerText = state.text;
+        dispText.style.transform = `translateY(${txtY}px) scale(${resultScale})`;
+        dispText.style.opacity = txtOpa;
+
+        // --- D. DISPLAY CONTAINER HIGHLIGHT ---
+        // Subtle inset & outer shadow pulse during Result Phase
+        const dispContainer = document.getElementById('displayContainer');
+        let dInDark = 0.8 - (0.1 * highlightGlow);
+        let dInLight = 0.9 + (0.15 * highlightGlow);
+        let dOutGlow = 10 * highlightGlow; // Faint outer spill
+        
+        dispContainer.style.boxShadow = `
+            inset 6px 6px 16px rgba(180, 186, 194, ${dInDark}), 
+            inset -6px -6px 16px rgba(254, 255, 255, ${dInLight}),
+            0px 0px ${dOutGlow}px rgba(254, 255, 255, ${highlightGlow * 0.4})
+        `;
+
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+
+</script>
+</body>
+</html>

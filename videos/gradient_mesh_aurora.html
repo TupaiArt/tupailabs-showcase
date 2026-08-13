@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Aurora Borealis Atmospheric Simulation</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #020513; /* Deep night sky */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #020513;
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * SVG LAYER FOR FULL PROCEDURAL RENDER
+         */
+        #scene-svg {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3840px;
+            height: 2160px;
+            overflow: visible;
+        }
+
+        /* Aurora Blending Magic */
+        #aurora-group {
+            mix-blend-mode: screen;
+            will-change: opacity;
+        }
+
+        /* Foreground Silhouettes */
+        .mtn-silhouette { fill: #050811; } /* Darkest atmospheric blue-black */
+        .tree-back { fill: #03050A; }     /* Almost black */
+        .tree-front { fill: #000000; }    /* Pure pitch black framing */
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <svg id="scene-svg" viewBox="0 0 3840 2160">
+            <defs>
+                <!-- Sky Background Gradient -->
+                <linearGradient id="sky-grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#01030B"/>
+                    <stop offset="50%" stop-color="#07101E"/>
+                    <stop offset="100%" stop-color="#142B42"/> <!-- Atmospheric horizon spill -->
+                </linearGradient>
+
+                <!-- Aurora Soft Blur Filter -->
+                <filter id="aurora-blur" filterUnits="userSpaceOnUse" x="-1000" y="-1000" width="6000" height="6000">
+                    <feGaussianBlur stdDeviation="80" />
+                </filter>
+
+                <!-- Aurora Ribbon Gradients (Vertical Flow) -->
+                <linearGradient id="grad-r1" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(0, 255, 180, 0)"/>
+                    <stop id="r1-mid1" offset="40%" stop-color="rgba(0, 255, 180, 0.7)"/>
+                    <stop id="r1-mid2" offset="80%" stop-color="rgba(0, 180, 255, 0.5)"/>
+                    <stop offset="100%" stop-color="rgba(0, 100, 255, 0)"/>
+                </linearGradient>
+
+                <linearGradient id="grad-r2" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(100, 0, 255, 0)"/>
+                    <stop id="r2-mid1" offset="35%" stop-color="rgba(150, 50, 255, 0.6)"/>
+                    <stop id="r2-mid2" offset="75%" stop-color="rgba(0, 200, 255, 0.5)"/>
+                    <stop offset="100%" stop-color="rgba(0, 100, 255, 0)"/>
+                </linearGradient>
+
+                <linearGradient id="grad-r3" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(50, 255, 100, 0)"/>
+                    <stop id="r3-mid1" offset="45%" stop-color="rgba(50, 255, 100, 0.8)"/>
+                    <stop id="r3-mid2" offset="85%" stop-color="rgba(0, 255, 200, 0.6)"/>
+                    <stop offset="100%" stop-color="rgba(0, 150, 200, 0)"/>
+                </linearGradient>
+
+                <linearGradient id="grad-r4" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(100, 255, 200, 0)"/>
+                    <stop id="r4-mid1" offset="30%" stop-color="rgba(100, 255, 200, 0.3)"/>
+                    <stop id="r4-mid2" offset="70%" stop-color="rgba(50, 150, 255, 0.2)"/>
+                    <stop offset="100%" stop-color="rgba(0, 50, 150, 0)"/>
+                </linearGradient>
+
+                <linearGradient id="grad-r5" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="rgba(200, 0, 255, 0)"/>
+                    <stop id="r5-mid1" offset="50%" stop-color="rgba(200, 50, 255, 0.5)"/>
+                    <stop id="r5-mid2" offset="90%" stop-color="rgba(255, 0, 150, 0.3)"/>
+                    <stop offset="100%" stop-color="rgba(100, 0, 100, 0)"/>
+                </linearGradient>
+            </defs>
+
+            <!-- 1. Background Sky -->
+            <rect width="3840" height="2160" fill="url(#sky-grad)" />
+
+            <!-- 2. Stars Layer -->
+            <g id="stars-group"></g>
+
+            <!-- 3. Aurora Ribbons Layer -->
+            <g id="aurora-group" filter="url(#aurora-blur)">
+                <path id="ribbon4" fill="url(#grad-r4)" />
+                <path id="ribbon2" fill="url(#grad-r2)" />
+                <path id="ribbon5" fill="url(#grad-r5)" />
+                <path id="ribbon1" fill="url(#grad-r1)" />
+                <path id="ribbon3" fill="url(#grad-r3)" />
+            </g>
+
+            <!-- 4. Mountain Silhouettes (Asymmetric & Dark) -->
+            <g id="mountains-group">
+                <path id="hero-mountain" class="mtn-silhouette" />
+            </g>
+
+            <!-- 5. Foreground Pine Trees (Left & Right Clusters) -->
+            <g id="trees-group">
+                <path id="trees-back" class="tree-back" />
+                <path id="trees-front" class="tree-front" />
+            </g>
+
+        </svg>
+    </div>
+
+    <script>
+        /**
+         * DETERMINISTIC PRNG
+         */
+        let seed = 888;
+        function random() {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        /**
+         * EASINGS & TIMELINE EVALUATION
+         */
+        const easings = {
+            linear: x => x,
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        const globalOpacityTrack = [
+            {t: 0.0, v: 0.0},
+            {t: 2.0, v: 0.3, e: 'inOutCubic'},
+            {t: 4.0, v: 1.0, e: 'inOutCubic'},
+            {t: 8.0, v: 1.0},
+            {t: 10.0, v: 0.4, e: 'inOutCubic'},
+            {t: 12.0, v: 0.0, e: 'inOutCubic'}
+        ];
+
+        /**
+         * SCENE GENERATORS (Stars, Mountains & Trees)
+         */
+        const stars = [];
+        function generateStars() {
+            const starsGroup = document.getElementById('stars-group');
+            for(let i=0; i<65; i++) {
+                let yFactor = Math.pow(random(), 1.5); 
+                let y = yFactor * 1400; 
+                let x = random() * 3840;
+                let r = 1.5 + random() * 2.5;
+                
+                let freq = Math.floor(random() * 3) + 1;
+                let phase = random() * Math.PI * 2;
+                let baseOp = 0.3 + random() * 0.4;
+                let varOp = 0.2 + random() * 0.3;
+
+                let circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', x);
+                circle.setAttribute('cy', y);
+                circle.setAttribute('r', r);
+                circle.setAttribute('fill', '#FFFFFF');
+                starsGroup.appendChild(circle);
+
+                stars.push({ el: circle, baseOp, varOp, freq, phase });
+            }
+        }
+
+        // Subdivides a line segment to add rocky jaggedness
+        function subdivideSegment(p1, p2, depth, roughness) {
+            if (depth === 0) return [p1, p2];
+            let midX = (p1.x + p2.x) / 2;
+            let midY = (p1.y + p2.y) / 2;
+            midY += (random() - 0.5) * roughness;
+            let midPoint = {x: midX, y: midY};
+            
+            let left = subdivideSegment(p1, midPoint, depth - 1, roughness * 0.5);
+            let right = subdivideSegment(midPoint, p2, depth - 1, roughness * 0.5);
+            
+            return left.slice(0, -1).concat(right);
+        }
+
+        function generateMountains() {
+            // Define macro structure points: Asymmetric, dominant peak right, secondary peak left
+            const anchorPoints = [
+                {x: 0, y: 1700},
+                {x: 400, y: 1650},
+                {x: 1000, y: 1350}, // Secondary Lower Peak
+                {x: 1500, y: 1600}, // Valley
+                {x: 2000, y: 1550},
+                {x: 2500, y: 950},  // Dominant Off-Center Peak
+                {x: 2900, y: 1400}, // Steep right ridge
+                {x: 3400, y: 1550},
+                {x: 3840, y: 1600}
+            ];
+
+            let detailedPoints = [];
+            for (let i = 0; i < anchorPoints.length - 1; i++) {
+                // High depth on steep segments, lower depth on flat segments
+                let dx = anchorPoints[i+1].x - anchorPoints[i].x;
+                let dy = anchorPoints[i+1].y - anchorPoints[i].y;
+                let len = Math.sqrt(dx*dx + dy*dy);
+                let roughness = len * 0.15; 
+                let segment = subdivideSegment(anchorPoints[i], anchorPoints[i+1], 4, roughness);
+                detailedPoints = detailedPoints.concat(i === 0 ? segment : segment.slice(1));
+            }
+
+            let d = `M 0,2160 L ${detailedPoints[0].x},${detailedPoints[0].y} `;
+            detailedPoints.forEach(p => {
+                d += `L ${p.x},${p.y} `;
+            });
+            d += `L 3840,2160 Z`;
+            
+            document.getElementById('hero-mountain').setAttribute('d', d);
+        }
+
+        function buildOrganicPine(cx, y, w, h, lean) {
+            let d = '';
+            let tiers = Math.floor(h / 90) + 4;
+            
+            let leftPts = [{x: cx, y: y - h}];
+            let rightPts = [{x: cx, y: y - h}];
+            
+            for(let i=1; i<=tiers; i++) {
+                let p = i/tiers;
+                let pEase = Math.pow(p, 0.8); 
+                
+                let tierW = w * pEase;
+                let tierY = (y - h) + (h * p);
+                
+                let leftW = tierW * (0.6 + random() * 0.8);
+                let rightW = tierW * (0.6 + random() * 0.8);
+                let dropL = 40 + random() * 50;
+                let dropR = 40 + random() * 50;
+                let cutL = 0.2 + random() * 0.4;
+                let cutR = 0.2 + random() * 0.4;
+                let currentCX = cx + (lean * p);
+                
+                leftPts.push({x: currentCX - leftW, y: tierY});
+                rightPts.push({x: currentCX + rightW, y: tierY});
+                
+                if(i < tiers) {
+                    leftPts.push({x: currentCX - leftW * cutL, y: tierY - dropL});
+                    rightPts.push({x: currentCX + rightW * cutR, y: tierY - dropR});
+                }
+            }
+            
+            let bottomY = y + 100;
+            leftPts.push({x: cx + lean - w*0.2, y: bottomY});
+            rightPts.push({x: cx + lean + w*0.2, y: bottomY});
+            
+            d += `M ${leftPts[0].x},${leftPts[0].y} `;
+            for(let i=1; i<leftPts.length; i++) d += `L ${leftPts[i].x},${leftPts[i].y} `;
+            d += `L ${rightPts[rightPts.length-1].x},${rightPts[rightPts.length-1].y} `;
+            for(let i=rightPts.length-2; i>=0; i--) d += `L ${rightPts[i].x},${rightPts[i].y} `;
+            d += 'Z ';
+            
+            return d;
+        }
+
+        function generateTrees() {
+            let backPath = '';
+            let frontPath = '';
+
+            // Helper to generate tree clusters
+            // Center is kept relatively open (x: 1300 to 2400)
+            function spawnCluster(pathStr, count, minX, maxX, minH, maxH, minW, maxW) {
+                for(let i=0; i<count; i++) {
+                    let x = minX + random() * (maxX - minX);
+                    // Fade out height towards the center
+                    let centerDist = Math.abs(x - 1920);
+                    let heightScale = 1.0;
+                    if (centerDist < 800) {
+                        heightScale = Math.max(0.1, centerDist / 800); // Shorter near center
+                    }
+
+                    let sizeFactor = Math.pow(random(), 2);
+                    let h = (minH + sizeFactor * (maxH - minH)) * heightScale;
+                    let w = minW + random() * (maxW - minW);
+                    let lean = (random() - 0.5) * 80;
+                    let y = 2160 + random() * 50; 
+                    
+                    pathStr += buildOrganicPine(x, y, w, h, lean);
+                }
+                return pathStr;
+            }
+
+            // BACK LAYER (Smaller, slightly lighter trees)
+            // Left side
+            backPath = spawnCluster(backPath, 25, -100, 1500, 300, 900, 80, 180);
+            // Right side
+            backPath = spawnCluster(backPath, 25, 2300, 3940, 300, 900, 80, 180);
+            
+            // FRONT LAYER (Massive framing trees, pure black)
+            // Left side framing
+            frontPath = spawnCluster(frontPath, 15, -100, 1000, 800, 1600, 150, 300);
+            // Extreme Left Hero Tree
+            frontPath += buildOrganicPine(100, 2200, 350, 2000, 100);
+            frontPath += buildOrganicPine(350, 2250, 280, 1500, 50);
+
+            // Right side framing
+            frontPath = spawnCluster(frontPath, 15, 2800, 3940, 800, 1600, 150, 300);
+            // Extreme Right Hero Tree
+            frontPath += buildOrganicPine(3700, 2200, 400, 1900, -120);
+            frontPath += buildOrganicPine(3400, 2250, 300, 1400, -80);
+
+            document.getElementById('trees-back').setAttribute('d', backPath);
+            document.getElementById('trees-front').setAttribute('d', frontPath);
+        }
+
+        // Initialize Static Geometry
+        generateStars();
+        generateMountains();
+        generateTrees();
+
+        /**
+         * AURORA RIBBON CONFIGURATION
+         */
+        const ribbonConfigs = [
+            {
+                id: 'ribbon1', // Main Hero
+                baseX: 1920, width: 450, driftAmp: 300, driftPhase: 0,
+                waves: [
+                    {a: 500, f_t: 1, f_y: 0.0015, p: 0},
+                    {a: 250, f_t: -2, f_y: 0.0025, p: 1.5},
+                    {a: 100, f_t: 3, f_y: 0.0040, p: 3.1}
+                ],
+                lumaStops: ['r1-mid1', 'r1-mid2'], lumaAmp: 15, lumaBase: [40, 80]
+            },
+            {
+                id: 'ribbon2', // Secondary Main
+                baseX: 1400, width: 550, driftAmp: 400, driftPhase: Math.PI/2,
+                waves: [
+                    {a: 600, f_t: -1, f_y: 0.0010, p: 2},
+                    {a: 300, f_t: 2, f_y: 0.0030, p: 4.5},
+                    {a: 150, f_t: -3, f_y: 0.0050, p: 1.1}
+                ],
+                lumaStops: ['r2-mid1', 'r2-mid2'], lumaAmp: 18, lumaBase: [35, 75]
+            },
+            {
+                id: 'ribbon3', // Front Thin
+                baseX: 2300, width: 200, driftAmp: 500, driftPhase: Math.PI,
+                waves: [
+                    {a: 400, f_t: 2, f_y: 0.0020, p: 1},
+                    {a: 200, f_t: -3, f_y: 0.0040, p: 3.5},
+                    {a: 80, f_t: 4, f_y: 0.0060, p: 5.2}
+                ],
+                lumaStops: ['r3-mid1', 'r3-mid2'], lumaAmp: 12, lumaBase: [45, 85]
+            },
+            {
+                id: 'ribbon4', // Deep Background
+                baseX: 2000, width: 1400, driftAmp: 200, driftPhase: Math.PI*1.5,
+                waves: [
+                    {a: 700, f_t: 1, f_y: 0.0008, p: 4},
+                    {a: 400, f_t: -1, f_y: 0.0018, p: 2.5}
+                ],
+                lumaStops: ['r4-mid1', 'r4-mid2'], lumaAmp: 10, lumaBase: [30, 70]
+            },
+            {
+                id: 'ribbon5', // Right Flank Accent
+                baseX: 3000, width: 350, driftAmp: 350, driftPhase: Math.PI*0.8,
+                waves: [
+                    {a: 450, f_t: -1, f_y: 0.0022, p: 5},
+                    {a: 200, f_t: 2, f_y: 0.0035, p: 0.5},
+                    {a: 120, f_t: -4, f_y: 0.0055, p: 2.2}
+                ],
+                lumaStops: ['r5-mid1', 'r5-mid2'], lumaAmp: 20, lumaBase: [50, 90]
+            }
+        ];
+
+        /**
+         * PROCEDURAL RIBBON GENERATION
+         */
+        function generateRibbonPath(t_norm, conf) {
+            let ptsLeft = [];
+            let ptsRight = [];
+            let steps = 40; 
+            
+            let currentBaseX = conf.baseX + Math.sin(t_norm * Math.PI * 2 + conf.driftPhase) * conf.driftAmp;
+
+            for(let i=0; i<=steps; i++) {
+                let y = -400 + (2600 * i / steps); 
+                
+                let dx = 0;
+                conf.waves.forEach(w => {
+                    dx += Math.sin(t_norm * Math.PI * 2 * w.f_t + y * w.f_y + w.p) * w.a;
+                });
+                
+                let dynamicWidth = conf.width + Math.sin(t_norm * Math.PI * 2 + y * 0.002) * (conf.width * 0.15);
+
+                ptsLeft.push({x: currentBaseX + dx - dynamicWidth/2, y: y});
+                ptsRight.unshift({x: currentBaseX + dx + dynamicWidth/2, y: y}); 
+            }
+            
+            let d = `M ${ptsLeft[0].x},${ptsLeft[0].y} `;
+            for(let i=1; i<ptsLeft.length; i++) d += `L ${ptsLeft[i].x},${ptsLeft[i].y} `;
+            for(let i=0; i<ptsRight.length; i++) d += `L ${ptsRight[i].x},${ptsRight[i].y} `;
+            d += "Z";
+            return d;
+        }
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let elapsedTime = (timestamp - startTime) / 1000;
+            let t = elapsedTime % 12.0; 
+            let t_norm = t / 12.0;      
+
+            // 1. Process Global Aurora Opacity
+            let globalOpacity = evaluateTrack(globalOpacityTrack, t, 0);
+            document.getElementById('aurora-group').style.opacity = globalOpacity;
+
+            // 2. Animate Stars (Twinkling)
+            stars.forEach(star => {
+                let currentOp = star.baseOp + Math.sin(t_norm * Math.PI * 2 * star.freq + star.phase) * star.varOp;
+                star.el.style.opacity = Math.max(0, Math.min(1, currentOp));
+            });
+
+            // 3. Process Aurora Deformations & Luminance Flows
+            ribbonConfigs.forEach(conf => {
+                let pathData = generateRibbonPath(t_norm, conf);
+                document.getElementById(conf.id).setAttribute('d', pathData);
+
+                let stop1Offset = conf.lumaBase[0] + Math.sin(t_norm * Math.PI * 2 * 2 + conf.driftPhase) * conf.lumaAmp;
+                let stop2Offset = conf.lumaBase[1] + Math.cos(t_norm * Math.PI * 2 * 1 + conf.driftPhase) * conf.lumaAmp;
+                
+                document.getElementById(conf.lumaStops[0]).setAttribute('offset', `${stop1Offset}%`);
+                document.getElementById(conf.lumaStops[1]).setAttribute('offset', `${stop2Offset}%`);
+            });
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

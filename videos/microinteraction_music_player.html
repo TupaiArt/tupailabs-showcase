@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Micro-Interaction: Music Player</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111111; /* Canvas Background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #111111;
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 
+         * MUSIC PLAYER CONTAINER
+         */
+        #player-card {
+            width: 1300px;
+            height: 720px;
+            background-color: #1B1B1B;
+            border-radius: 20px;
+            padding: 70px;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 40px 100px rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        /* 
+         * TOP SECTION: ARTWORK & METADATA
+         */
+        #top-section {
+            display: flex;
+            align-items: center;
+            height: 300px;
+        }
+
+        #artwork-wrapper {
+            width: 300px;
+            height: 300px;
+            border-radius: 16px;
+            overflow: hidden;
+            will-change: transform;
+            transform-origin: center center;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+        }
+
+        #metadata {
+            margin-left: 70px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            flex: 1;
+        }
+
+        #title {
+            font-size: 80px;
+            font-weight: 800;
+            color: #F5F5F2;
+            letter-spacing: 2px;
+            line-height: 1.1;
+        }
+
+        #artist {
+            font-size: 45px;
+            font-weight: 600;
+            color: #858585;
+            margin-top: 10px;
+        }
+
+        #genre {
+            font-size: 30px;
+            font-weight: 600;
+            color: #858585;
+            margin-top: 35px;
+            letter-spacing: 4px;
+        }
+
+        #status-wrapper {
+            margin-top: 25px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+        }
+
+        #status-text {
+            font-size: 28px;
+            font-weight: 700;
+            color: #B7FF4A;
+            letter-spacing: 2px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            opacity: 0; /* JS driven */
+        }
+
+        /* 
+         * MIDDLE SECTION: WAVEFORM & PROGRESS
+         */
+        #waveform-container {
+            width: 100%;
+            height: 70px;
+            margin-top: 50px;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+
+        .wave-bar {
+            width: 16px;
+            background-color: #858585;
+            border-radius: 8px;
+            height: 8px; /* Base height */
+            will-change: height, background-color;
+        }
+
+        #progress-container {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .time-text {
+            font-size: 26px;
+            font-weight: 600;
+            color: #858585;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #progress-track {
+            flex: 1;
+            height: 8px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 4px;
+            position: relative;
+        }
+
+        #progress-fill {
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 0%; /* JS driven */
+            background-color: #B7FF4A;
+            border-radius: 4px;
+        }
+
+        #progress-dot {
+            position: absolute;
+            left: 0%; /* JS driven */
+            top: 50%;
+            width: 20px;
+            height: 20px;
+            background-color: #F5F5F2;
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        /* 
+         * BOTTOM SECTION: CONTROLS
+         */
+        #controls {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 70px;
+            margin-top: 45px;
+        }
+
+        .btn-side {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: transparent; /* JS driven */
+            will-change: background-color, opacity;
+        }
+
+        .btn-side svg {
+            fill: #F5F5F2;
+            opacity: 0.6; /* JS driven */
+            width: 35px;
+            height: 35px;
+        }
+
+        #btn-play {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #F5F5F2;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            will-change: transform;
+            transform-origin: center center;
+        }
+
+        #btn-play svg {
+            fill: #1B1B1B;
+            width: 45px;
+            height: 45px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        
+        <div id="player-card">
+            
+            <!-- TOP SECTION -->
+            <div id="top-section">
+                <div id="artwork-wrapper">
+                    <!-- Geometric Generative Artwork -->
+                    <svg width="300" height="300" viewBox="0 0 300 300" style="background: linear-gradient(135deg, #2D2D2D, #111111);">
+                        <!-- Grid/Noise -->
+                        <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                            <rect width="1" height="1" fill="#FFFFFF" opacity="0.07"/>
+                        </pattern>
+                        <rect width="300" height="300" fill="url(#grid)" />
+                        
+                        <!-- Shapes -->
+                        <circle cx="150" cy="150" r="90" fill="url(#circleGrad)" />
+                        <rect x="-50" y="220" width="400" height="50" fill="#B7FF4A" transform="rotate(-25 150 150)" />
+                        <line x1="0" y1="0" x2="300" y2="300" stroke="#F5F5F2" stroke-width="4" opacity="0.2" />
+                        
+                        <defs>
+                            <linearGradient id="circleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="#FF5252" />
+                                <stop offset="100%" stop-color="#8000FF" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+
+                <div id="metadata">
+                    <div id="title">NIGHT DRIVE</div>
+                    <div id="artist">TUPAI</div>
+                    <div id="genre">SYNTHWAVE / 2026</div>
+                    <div id="status-wrapper">
+                        <div id="status-text">
+                            <svg id="status-icon" width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="8" fill="#B7FF4A"/></svg>
+                            <span id="status-label">PLAYING</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MIDDLE SECTION -->
+            <div id="waveform-container">
+                <!-- Bars injected via JS -->
+            </div>
+
+            <div id="progress-container">
+                <div id="time-current" class="time-text">02:14</div>
+                <div id="progress-track">
+                    <div id="progress-fill"></div>
+                    <div id="progress-dot"></div>
+                </div>
+                <div id="time-total" class="time-text">03:48</div>
+            </div>
+
+            <!-- BOTTOM SECTION -->
+            <div id="controls">
+                <div class="btn-side" id="btn-prev">
+                    <svg viewBox="0 0 60 60">
+                        <path d="M40 15 L20 30 L40 45 Z" /><rect x="15" y="15" width="6" height="30" />
+                    </svg>
+                </div>
+                
+                <div id="btn-play">
+                    <!-- Play Icon -->
+                    <svg id="icon-play" viewBox="0 0 60 60">
+                        <path d="M22 15 L46 30 L22 45 Z" />
+                    </svg>
+                    <!-- Pause Icon -->
+                    <svg id="icon-pause" viewBox="0 0 60 60" style="display: none;">
+                        <rect x="18" y="15" width="8" height="30" />
+                        <rect x="34" y="15" width="8" height="30" />
+                    </svg>
+                </div>
+
+                <div class="btn-side" id="btn-next">
+                    <svg viewBox="0 0 60 60">
+                        <path d="M20 15 L40 30 L20 45 Z" /><rect x="39" y="15" width="6" height="30" />
+                    </svg>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * INITIALIZATION
+         */
+        const waveformContainer = document.getElementById('waveform-container');
+        const numBars = 30;
+        const bars = [];
+        
+        for (let i = 0; i < numBars; i++) {
+            let bar = document.createElement('div');
+            bar.className = 'wave-bar';
+            waveformContainer.appendChild(bar);
+            bars.push({
+                el: bar,
+                phase1: i * 0.4,
+                phase2: i * 0.7
+            });
+        }
+
+        // Track constants
+        const START_TIME = 134; // 02:14 in seconds
+        const TOTAL_TIME = 228; // 03:48 in seconds
+
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            linear: x => x,
+            outCubic: x => 1 - Math.pow(1 - x, 3),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS
+         */
+        const config = [
+            // PLAY BUTTON SCALE
+            {
+                id: 'btn-play-scale',
+                tracks: {
+                    scale: [
+                        {t:0,v:1},
+                        {t:0.8,v:1}, {t:0.95,v:0.92,e:'outCubic'}, {t:1.1,v:1,e:'outCubic'}, // Press to play
+                        {t:4.0,v:1}, {t:4.1,v:0.92,e:'outCubic'}, {t:4.25,v:1,e:'outCubic'}  // Press to pause
+                    ]
+                }
+            },
+            
+            // STATE BLEND (0 = Idle/Paused, 1 = Playing)
+            // Controls waveform amplitude and artwork pulse
+            {
+                id: 'play-blend',
+                tracks: {
+                    v: [
+                        {t:0,v:0}, 
+                        {t:0.9,v:0}, {t:1.2,v:1,e:'inOutCubic'}, // Wakes up
+                        {t:4.0,v:1}, {t:4.3,v:0,e:'inOutCubic'}  // Winds down
+                    ]
+                }
+            },
+
+            // NEXT BUTTON HOVER STATE
+            {
+                id: 'next-hover',
+                tracks: {
+                    bgAlpha: [ {t:0,v:0}, {t:3.4,v:0}, {t:3.5,v:0.1,e:'outCubic'}, {t:4.0,v:0.1}, {t:4.1,v:0,e:'outCubic'} ],
+                    iconOp: [ {t:0,v:0.6}, {t:3.4,v:0.6}, {t:3.5,v:1.0,e:'outCubic'}, {t:4.0,v:1.0}, {t:4.1,v:0.6,e:'outCubic'} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let t = (timestamp - startTime) / 1000;
+
+            // 1. Evaluate Core Tracks
+            let playBtnScale = evaluateTrack(config.find(c => c.id === 'btn-play-scale').tracks.scale, t, 1);
+            let playBlend = evaluateTrack(config.find(c => c.id === 'play-blend').tracks.v, t, 0);
+            
+            let nextHoverBg = evaluateTrack(config.find(c => c.id === 'next-hover').tracks.bgAlpha, t, 0);
+            let nextHoverIcon = evaluateTrack(config.find(c => c.id === 'next-hover').tracks.iconOp, t, 0.6);
+
+            // 2. Apply Play Button Transform
+            document.getElementById('btn-play').style.transform = `scale(${playBtnScale})`;
+
+            // 3. Apply Next Button Hover
+            const btnNext = document.getElementById('btn-next');
+            btnNext.style.backgroundColor = `rgba(255, 255, 255, ${nextHoverBg})`;
+            btnNext.querySelector('svg').style.opacity = nextHoverIcon;
+
+            // 4. Icon Swapping Logic
+            const iconPlay = document.getElementById('icon-play');
+            const iconPause = document.getElementById('icon-pause');
+            // Play pressed at 0.9, Pause pressed at 4.1
+            if (t >= 0.9 && t < 4.1) {
+                iconPlay.style.display = 'none';
+                iconPause.style.display = 'block';
+            } else {
+                iconPlay.style.display = 'block';
+                iconPause.style.display = 'none';
+            }
+
+            // 5. Artwork Pulse Logic
+            // Base scale 1.0, pulses up to 1.025 synchronized with a beat (e.g., 2 beats per sec)
+            let artPulse = 1.0 + (0.025 * Math.abs(Math.sin(t * Math.PI * 2))) * playBlend;
+            document.getElementById('artwork-wrapper').style.transform = `scale(${artPulse})`;
+
+            // 6. Progress and Time Logic
+            // Track advances 3 seconds over the 3.2s playback window (0.9 to 4.1)
+            let activePlayTime = Math.max(0, Math.min(t, 4.1) - 0.9);
+            let currentSeconds = START_TIME + (activePlayTime * (3 / 3.2));
+            
+            let progPercent = (currentSeconds / TOTAL_TIME) * 100;
+            document.getElementById('progress-fill').style.width = `${progPercent}%`;
+            document.getElementById('progress-dot').style.left = `${progPercent}%`;
+
+            let displayMin = Math.floor(currentSeconds / 60).toString().padStart(2, '0');
+            let displaySec = Math.floor(currentSeconds % 60).toString().padStart(2, '0');
+            document.getElementById('time-current').innerText = `${displayMin}:${displaySec}`;
+
+            // 7. Waveform Logic
+            // Amplitude scales with playBlend. Organic movement via combining sines.
+            bars.forEach((barObj, index) => {
+                let wave1 = Math.sin(t * 12 + barObj.phase1);
+                let wave2 = Math.sin(t * 18 - barObj.phase2);
+                // Combine and normalize to 0..1 roughly
+                let combined = Math.abs((wave1 + wave2) / 2);
+                
+                // Base 8px, max additional 62px (total 70px)
+                let h = 8 + (combined * 62) * playBlend;
+                barObj.el.style.height = `${h}px`;
+                
+                // Color highlight for active state
+                if (playBlend > 0.1) {
+                    barObj.el.style.backgroundColor = '#F5F5F2';
+                } else {
+                    barObj.el.style.backgroundColor = '#858585';
+                }
+            });
+
+            // 8. Status Text Logic
+            const statusText = document.getElementById('status-text');
+            const statusLabel = document.getElementById('status-label');
+            const statusIcon = document.getElementById('status-icon');
+
+            if (t < 0.9) {
+                statusText.style.opacity = 0;
+            } else if (t >= 0.9 && t < 4.1) {
+                // Pulsing opacity while playing
+                let pulse = 0.4 + 0.6 * Math.abs(Math.sin(t * 4));
+                statusText.style.opacity = pulse;
+                statusLabel.innerText = 'PLAYING';
+                statusLabel.style.color = '#B7FF4A';
+                statusIcon.style.display = 'block';
+            } else {
+                // Solid paused state
+                statusText.style.opacity = 1;
+                statusLabel.innerText = 'PAUSED';
+                statusLabel.style.color = '#858585';
+                statusIcon.style.display = 'none';
+            }
+
+            // Loop forever, maps deterministic states cleanly
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

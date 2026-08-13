@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Isometric Smart Farm Ecosystem - Revised</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #EAF1E8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: -apple-system, sans-serif;
+        }
+
+        /* 16:9 Stage Canvas */
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16/9 Ratio Limit */
+            max-height: 56.25vw;
+            background-color: #EAF1E8;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <!-- Enlarged Viewport to make the farm the absolute hero -->
+    <svg id="smart-farm-svg" viewBox="-550 -400 1100 750"></svg>
+</div>
+
+<script>
+    const svg = document.getElementById('smart-farm-svg');
+
+    // ==========================================
+    // 1. ISOMETRIC PROJECTION HELPERS
+    // ==========================================
+    const COS30 = 0.866025;
+    const SIN30 = 0.5;
+
+    // Convert 3D Cartesian (x, y, z) to 2D Isometric Screen Space
+    function project(x, y, z) {
+        return {
+            x: (x - y) * COS30,
+            y: (x + y) * SIN30 - z
+        };
+    }
+
+    function makePoly(points, fill, stroke = "none", strokeWidth = 0, opacity = 1) {
+        const pts = points.map(p => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+        return `<polygon points="${pts}" fill="${fill}" stroke="${stroke === 'none' ? fill : stroke}" stroke-width="${strokeWidth || 0.5}" stroke-linejoin="round" opacity="${opacity}" />`;
+    }
+
+    // Advanced 3D Box generator
+    function drawBox3D(x, y, z, w, d, h, cTop, cLeft, cRight) {
+        const p0 = project(x, y, z);
+        const p1 = project(x+w, y, z);
+        const p2 = project(x+w, y+d, z);
+        const p3 = project(x, y+d, z);
+        const p4 = project(x, y, z+h);
+        const p5 = project(x+w, y, z+h);
+        const p6 = project(x+w, y+d, z+h);
+        const p7 = project(x, y+d, z+h);
+
+        let svgStr = "";
+        svgStr += makePoly([p3, p2, p6, p7], cLeft);   // Left face
+        svgStr += makePoly([p1, p2, p6, p5], cRight);  // Right face
+        svgStr += makePoly([p4, p5, p6, p7], cTop);    // Top face
+        return svgStr;
+    }
+
+    function drawIsoWheel(cx, cy, cz, radius, width, cSide, cTread, faceX = true) {
+        let svgStr = "";
+        let ptsOuter = [], ptsInner = [];
+        let segments = 16;
+        for (let i = 0; i < segments; i++) {
+            let angle = (i / segments) * Math.PI * 2;
+            let u = Math.cos(angle) * radius;
+            let v = Math.sin(angle) * radius;
+            
+            if (faceX) {
+                ptsOuter.push(project(cx + width, cy + u, cz + v));
+                ptsInner.push(project(cx, cy + u, cz + v));
+            } else {
+                ptsOuter.push(project(cx + u, cy + width, cz + v));
+                ptsInner.push(project(cx + u, cy, cz + v));
+            }
+        }
+        for (let i = 0; i < segments; i++) {
+            let next = (i + 1) % segments;
+            if ((faceX && ptsOuter[i].x < ptsInner[i].x) || (!faceX && ptsOuter[i].y > ptsInner[i].y)) {
+                svgStr += makePoly([ptsInner[i], ptsInner[next], ptsOuter[next], ptsOuter[i]], cTread);
+            }
+        }
+        svgStr += makePoly(ptsOuter, cSide);
+        return svgStr;
+    }
+
+    // Tapered isometric prism (used for the wind turbine tower).
+    // Symmetric taper around a shared center (cx, cy): wide square at the base,
+    // narrower square at the top, so it reads as real isometric volume instead
+    // of a flat 2D line. Produces a front/left face and a side/right face
+    // (plus an optional small top cap) using the same face convention as drawBox3D.
+    function drawTaperedPrism(cx, cy, zBase, wBase, wTop, height, cLeft, cRight, cTop) {
+        const hb = wBase / 2, ht = wTop / 2;
+        const b0 = project(cx - hb, cy - hb, zBase), b1 = project(cx + hb, cy - hb, zBase);
+        const b2 = project(cx + hb, cy + hb, zBase), b3 = project(cx - hb, cy + hb, zBase);
+        const zTop = zBase + height;
+        const t0 = project(cx - ht, cy - ht, zTop), t1 = project(cx + ht, cy - ht, zTop);
+        const t2 = project(cx + ht, cy + ht, zTop), t3 = project(cx - ht, cy + ht, zTop);
+
+        let svgStr = "";
+        svgStr += makePoly([b3, b2, t2, t3], cLeft, '#3D4A46', 1);  // front/left face
+        svgStr += makePoly([b1, b2, t2, t1], cRight, '#3D4A46', 1); // side/right face
+        if (cTop) svgStr += makePoly([t0, t1, t2, t3], cTop, '#3D4A46', 0.6); // small top cap under the hub
+        return svgStr;
+    }
+
+    // Low isometric disc/cylinder (used for the turbine foundation).
+    function drawIsoDisc(cx, cy, cz, radius, height, cTop, cSide, segments = 14) {
+        let top = [], bottom = [];
+        for (let i = 0; i < segments; i++) {
+            let angle = (i / segments) * Math.PI * 2;
+            let ux = Math.cos(angle) * radius, uy = Math.sin(angle) * radius;
+            top.push(project(cx + ux, cy + uy, cz + height));
+            bottom.push(project(cx + ux, cy + uy, cz));
+        }
+        let svgStr = "";
+        for (let i = 0; i < segments; i++) {
+            let next = (i + 1) % segments;
+            // Only the faces that turn away from the top-left light need shading;
+            // drawing the lower half is enough since the top disc covers the rest.
+            if (bottom[i].y > top[i].y - 0.01) {
+                svgStr += makePoly([bottom[i], bottom[next], top[next], top[i]], cSide);
+            }
+        }
+        svgStr += makePoly(top, cTop);
+        return svgStr;
+    }
+
+    // Simple tapered ground ribbon (used for the small dirt path).
+    // Takes a short world-space centerline and a matching width per point.
+    function drawGroundPath(pts, widths, color, z = 1) {
+        let left = [], right = [];
+        for (let i = 0; i < pts.length; i++) {
+            let prev = pts[Math.max(0, i - 1)];
+            let next = pts[Math.min(pts.length - 1, i + 1)];
+            let dx = next.x - prev.x, dy = next.y - prev.y;
+            let len = Math.sqrt(dx * dx + dy * dy) || 1;
+            let nx = -dy / len, ny = dx / len;
+            let w = widths[i] / 2;
+            left.push(project(pts[i].x + nx * w, pts[i].y + ny * w, z));
+            right.push(project(pts[i].x - nx * w, pts[i].y - ny * w, z));
+        }
+        return makePoly(left.concat(right.reverse()), color);
+    }
+
+    // ==========================================
+    // 2. MATH & EASING UTILITIES
+    // ==========================================
+    function clamp(val, min, max) { return Math.max(min, Math.min(max, val)); }
+    function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function lerpHex(a, b, t) {
+        const ah = parseInt(a.replace('#', ''), 16), bh = parseInt(b.replace('#', ''), 16);
+        const ar = ah >> 16, ag = (ah >> 8) & 0xff, ab = ah & 0xff;
+        const br = bh >> 16, bg = (bh >> 8) & 0xff, bb = bh & 0xff;
+        const rr = Math.round(ar + (br - ar) * t), rg = Math.round(ag + (bg - ag) * t), rb = Math.round(ab + (bb - ab) * t);
+        return '#' + ((1 << 24) + (rr << 16) + (rg << 8) + rb).toString(16).slice(1);
+    }
+
+    // ==========================================
+    // 3. CULTIVATION BEDS & PLANT GENERATION
+    // ==========================================
+    const plantDatabase = [];
+    const sprinkX = 180, sprinkY = 40; // Sprinkler placed at irrigation junction
+    const bedConfigs = [
+        { x: 30, w: 45, yStart: -20, yEnd: 180, angleY: 0 },   // Bed A
+        { x: 95, w: 55, yStart: -20, yEnd: 210, angleY: 10 },  // Bed B (slightly angled row spacing)
+        { x: 170, w: 60, yStart: -20, yEnd: 240, angleY: -5 }, // Bed C (curves out)
+        { x: 250, w: 45, yStart: -20, yEnd: 200, angleY: 0 }   // Bed D
+    ];
+
+    // Seed Randomizer
+    let seed = 12345;
+    function random() {
+        let x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+    }
+
+    // Generate Plants
+    bedConfigs.forEach(bed => {
+        let rows = 5;
+        let spacingX = bed.w / rows;
+        for (let r = 0; r < rows; r++) {
+            let cx = bed.x + r * spacingX;
+            for (let cy = bed.yStart; cy <= bed.yEnd; cy += 18) {
+                // Organic offset & spacing
+                let rx = cx + (random() * 4 - 2);
+                let ry = cy + (random() * 6 - 3) + (r * (bed.angleY / 5)); // Follows bed contour
+                
+                let distToSprink = Math.sqrt(Math.pow(rx - sprinkX, 2) + Math.pow(ry - sprinkY, 2));
+                
+                // Depth scale (larger in foreground)
+                let depthRatio = clamp((ry + 50) / 300, 0, 1); 
+                let baseScale = 0.5 + (0.5 * depthRatio) + (random() * 0.2); // 0.5x to 1.2x
+
+                plantDatabase.push({
+                    x: rx, y: ry, z: 2, 
+                    type: Math.floor(random() * 3), 
+                    scale: baseScale,
+                    dist: distToSprink,
+                    depth: rx + ry // Isometric painter's depth
+                });
+            }
+        }
+    });
+
+    // Add Edge Vegetation (Small grass tufts)
+    for(let i = 0; i < 20; i++) {
+        plantDatabase.push({
+            x: 10 + random()*300, y: 250 + random()*30, z: 0,
+            type: 3, scale: 0.6 + random()*0.4, dist: 999, depth: 999
+        });
+    }
+
+    // Add Smart Sensors inside beds
+    plantDatabase.push({ x: 160, y: 0, z: 2, type: 4, scale: 1, dist: 0, depth: 160 });
+    plantDatabase.push({ x: 240, y: 150, z: 2, type: 4, scale: 1.1, dist: 0, depth: 390 });
+
+    // Sort all plants and details strictly by Isometric Depth (Painter's Algorithm)
+    plantDatabase.sort((a, b) => a.depth - b.depth);
+
+
+    // ==========================================
+    // 4. MAIN ANIMATION ENGINE (5-Second Loop)
+    // ==========================================
+    function render(timestamp) {
+        let t = (timestamp / 1000) % 5.0; 
+
+        // --- A. CHOREOGRAPHY STATE TIMELINE ---
+        
+        // 0-1s: Solar panel tracking
+        let solarTrackP = clamp(t / 1.0, 0, 1);
+        let solarTilt = lerp(-20, 25, easeInOutQuad(solarTrackP)); 
+        
+        // 1-2s: Wind turbine starts up, then spins at a smooth constant rate.
+        // Only the hub + blades use this value; the tower itself never rotates.
+        let windRampP = clamp((t - 1.0) / 0.6, 0, 1);
+        let turbineRot = (t > 1.0) ? (t - 1.0) * 140 * easeOutCubic(windRampP) : 0;
+
+        // 2-5s: Sprinkler activates (only covers Bed B and C)
+        let sprinklerActive = t > 2.0;
+        let sprinklerSpeed = clamp((t - 2.0) / 0.5, 0, 1);
+        let sprinklerRot = sprinklerActive ? (t - 2.0) * 200 * easeOutCubic(sprinklerSpeed) : 0;
+
+        let dataFlowOffset = (t * -40) % 20;
+
+        // --- B. SVG GENERATION ---
+        let svgStr = "";
+
+        // ---------------------------------------------------------
+        // LAYER 1: SKY, SUN & RAYS
+        // ---------------------------------------------------------
+        let sunX = project(-400, -380, 150).x;
+        let sunY = project(-400, -380, 150).y;
+        
+        svgStr += `
+            <g id="sun">
+                <circle cx="${sunX}" cy="${sunY}" r="35" fill="#E4B84A" />
+                <circle cx="${sunX}" cy="${sunY}" r="60" fill="#E4B84A" opacity="0.15" />
+                <!-- Targeted Rays to Solar Array -->
+                <path d="M ${sunX+30} ${sunY+30} L ${sunX+100} ${sunY+120}" stroke="#E4B84A" stroke-width="3" stroke-dasharray="10 6" opacity="${0.3 + 0.2*Math.sin(t*4)}" />
+                <path d="M ${sunX-5} ${sunY+40} L ${sunX-10} ${sunY+130}" stroke="#E4B84A" stroke-width="2" stroke-dasharray="8 8" opacity="${0.2 + 0.2*Math.sin(t*3)}" />
+            </g>
+        `;
+
+        // ---------------------------------------------------------
+        // LAYER 2: FARM TERRAIN & ROADS
+        // ---------------------------------------------------------
+        // Terrain footprint kept well inside the canvas: world box
+        // x:[-290,320] y:[-258,285] projects to roughly x':[-500,500] y':[-280,305]
+        // in the -550..550 / -400..350 viewBox, leaving a comfortable safe
+        // margin on every side so no soil, cliff face, or shadow ever crosses
+        // the frame edge.
+        const terrX = -290, terrY = -258, terrW = 610, terrD = 543, cliffH = 18;
+        svgStr += `<g id="terrain">`;
+        // Cliff sides + grass top as one consistent isometric block (top face
+        // stops exactly where the side faces stop, so nothing overhangs).
+        svgStr += drawBox3D(terrX, terrY, -cliffH, terrW, terrD, cliffH, '#7D9B67', '#8C6746', '#6A4A30');
+
+        // Small simple dirt path (replaces the old tractor road) — a short,
+        // naturally tapering trail sitting well inside the terrain, not a
+        // leftover vehicle lane.
+        svgStr += drawGroundPath(
+            [ {x:-200,y:230}, {x:-160,y:150}, {x:-110,y:70}, {x:-70,y:5}, {x:-45,y:-55} ],
+            [ 26, 22, 17, 13, 9 ],
+            '#CFA579'
+        );
+
+        // Solar Array Dark Ground Patch
+        svgStr += makePoly([project(-280, -250, 1), project(-100, -250, 1), project(-100, -50, 1), project(-280, -50, 1)], '#527052');
+        
+        // ---------------------------------------------------------
+        // LAYER 3: INTEGRATED IRRIGATION CHANNELS
+        // ---------------------------------------------------------
+        // Main Channel bordering the field
+        let mainChannel = [project(15, -45, 0.5), project(320, -45, 0.5), project(320, -25, 0.5), project(15, -25, 0.5)];
+        svgStr += makePoly(mainChannel, '#4A3B2E'); // Depth
+        svgStr += makePoly([project(17, -43, 1), project(318, -43, 1), project(318, -27, 1), project(17, -27, 1)], '#69A8B5'); // Water
+        
+        // Irrigation Branches separating beds
+        let branch1 = [project(80, -25, 0.5), project(90, -25, 0.5), project(90, 210, 0.5), project(80, 210, 0.5)];
+        let branch2 = [project(155, -25, 0.5), project(165, -25, 0.5), project(165, 240, 0.5), project(155, 240, 0.5)];
+        let branch3 = [project(235, -25, 0.5), project(245, -25, 0.5), project(245, 200, 0.5), project(235, 200, 0.5)];
+        
+        svgStr += makePoly(branch1, '#69A8B5'); svgStr += makePoly(branch2, '#69A8B5'); svgStr += makePoly(branch3, '#69A8B5');
+        
+        // Flow animated lines
+        let flowL1 = project(50 - dataFlowOffset, -35, 1.2);
+        let flowL2 = project(150 - dataFlowOffset, -35, 1.2);
+        svgStr += `<line x1="${flowL1.x}" y1="${flowL1.y}" x2="${flowL2.x}" y2="${flowL2.y}" stroke="#FFFFFF" stroke-width="1.5" opacity="0.5" stroke-dasharray="15 15"/>`;
+        svgStr += `</g>`;
+
+        // ---------------------------------------------------------
+        // LAYER 4: ORGANIC CULTIVATION BEDS (Raised Soil)
+        // ---------------------------------------------------------
+        svgStr += `<g id="cultivation-beds">`;
+        bedConfigs.forEach(bed => {
+            // Draw a raised 3D polygon for the soil bed
+            let h = 2; // Bed height
+            let b0 = project(bed.x, bed.yStart, 0), b1 = project(bed.x+bed.w, bed.yStart, 0);
+            let b2 = project(bed.x+bed.w, bed.yEnd, 0), b3 = project(bed.x, bed.yEnd, 0);
+            
+            let t0 = project(bed.x, bed.yStart, h), t1 = project(bed.x+bed.w, bed.yStart, h);
+            let t2 = project(bed.x+bed.w, bed.yEnd, h), t3 = project(bed.x, bed.yEnd, h);
+            
+            svgStr += makePoly([b3, b2, t2, t3], '#543D2A'); // Left face
+            svgStr += makePoly([b1, b2, t2, t1], '#694F38'); // Right face
+            svgStr += makePoly([t0, t1, t2, t3], '#8D6E52'); // Top Warm Brown Soil
+
+            // Add planting grooves (diagonal marks)
+            for(let g = bed.yStart + 20; g < bed.yEnd; g += 30) {
+                let gS = project(bed.x + 5, g, h+0.1);
+                let gE = project(bed.x + bed.w - 5, g + bed.angleY, h+0.1);
+                svgStr += `<line x1="${gS.x}" y1="${gS.y}" x2="${gE.x}" y2="${gE.y}" stroke="#694F38" stroke-width="1.5" opacity="0.6"/>`;
+            }
+        });
+        svgStr += `</g>`;
+
+        // ---------------------------------------------------------
+        // LAYER 5: SMART CONNECTIONS & SENSORS
+        // ---------------------------------------------------------
+        let line1Start = project(-100, -150, 1.5);
+        let line1End = project(-20, -150, 1.5);
+        let line2Start = project(-20, -130, 1.5);
+        let line2End = project(sprinkX, sprinkY, 1.5); // Routed to sprinkler
+
+        svgStr += `
+            <g id="smart-connections" stroke="#E4B84A" stroke-width="2" stroke-dasharray="8 4" stroke-dashoffset="${dataFlowOffset}">
+                <line x1="${line1Start.x}" y1="${line1Start.y}" x2="${line1End.x}" y2="${line1End.y}" />
+                <line x1="${line2Start.x}" y1="${line2Start.y}" x2="${line2End.x}" y2="${line2End.y}" />
+            </g>
+        `;
+
+        // ---------------------------------------------------------
+        // LAYER 6: WIND TURBINE (Back Right) — isometric tapered tower,
+        // separate rotating hub+blades, everything kept inside safe margins.
+        // ---------------------------------------------------------
+        const winX = 250, winY = -160;
+        const towerZBase = 6, towerHeight = 168;
+        svgStr += `<g id="wind-turbine">`;
+
+        // Soft shadow under the foundation
+        let turbShadowPts = [];
+        for (let i = 0; i < 16; i++) {
+            let a = (i / 16) * Math.PI * 2;
+            turbShadowPts.push(project(winX + Math.cos(a) * 32, winY + Math.sin(a) * 28, 0.15));
+        }
+        svgStr += makePoly(turbShadowPts, '#1E2529', 'none', 0, 0.15);
+
+        // Circular foundation the tower base sits on
+        svgStr += drawIsoDisc(winX, winY, 0, 24, towerZBase, '#8B9A93', '#63716B');
+
+        // Tapered isometric tower: wide at the base, narrow near the hub —
+        // real front/left + side/right volume, not a flat 2D line. Static;
+        // it never rotates.
+        svgStr += drawTaperedPrism(winX, winY, towerZBase, 30, 11, towerHeight, '#D8DDD6', '#AEB8B0', '#C7CDC6');
+
+        // Hub + blades: the only part that spins.
+        let hub = project(winX, winY, towerZBase + towerHeight);
+        svgStr += `<g transform="translate(${hub.x}, ${hub.y}) rotate(${turbineRot})">`;
+        // Small isometric hub housing (front face + side/shadow face) built
+        // from local coordinates centered on the hub, so it rotates cleanly.
+        svgStr += drawBox3D(-9, -9, -7, 18, 18, 14, '#4A5750', '#3E4A45', '#2C3531');
+        // Three thicker tapered blades — wide near the hub, narrow at the tip.
+        for (let i = 0; i < 3; i++) {
+            svgStr += `<g transform="rotate(${i * 120})">
+                <path d="M -8 -10 L 8 -10 L 5 -85 L 0 -96 L -5 -85 Z" fill="#F4F1E8" stroke="#D9D5CA" stroke-width="1" stroke-linejoin="round" />
+            </g>`;
+        }
+        svgStr += `</g></g>`;
+
+        // ---------------------------------------------------------
+        // LAYER 7: BARN & SOLAR ARRAY (Midground)
+        // ---------------------------------------------------------
+        let barnX = -50, barnY = -180;
+        svgStr += `<g id="barn-station">`;
+        svgStr += drawBox3D(barnX, barnY, 0, 70, 90, 60, '#C0392B', '#A93226', '#922B21');
+        let rA = project(barnX-5, barnY-5, 60), rB = project(barnX+75, barnY-5, 60), rC = project(barnX+75, barnY+95, 60), rD = project(barnX-5, barnY+95, 60);
+        let rTop1 = project(barnX+35, barnY-5, 95), rTop2 = project(barnX+35, barnY+95, 95);
+        svgStr += makePoly([rA, rTop1, rTop2, rD], '#3E4A45'); 
+        svgStr += makePoly([rB, rTop1, rTop2, rC], '#2C3531'); 
+        
+        svgStr += drawBox3D(barnX+15, barnY+90, 0, 20, 1, 35, '#E4B84A', '#E4B84A', '#E4B84A'); 
+        svgStr += drawBox3D(barnX+45, barnY+90, 30, 15, 1, 15, '#69A8B5', '#69A8B5', '#69A8B5'); 
+        
+        svgStr += drawBox3D(barnX+10, barnY+40, 80, 2, 2, 30, '#758782', '#758782', '#758782'); 
+        let indBase = project(barnX+11, barnY+41, 110);
+        let activeColor = (t > 1.0) ? '#2ECC71' : '#E74C3C';
+        svgStr += `<circle cx="${indBase.x}" cy="${indBase.y}" r="6" fill="${activeColor}" filter="blur(1px)" />`;
+        svgStr += `<circle cx="${indBase.x}" cy="${indBase.y}" r="3" fill="${activeColor}" />`;
+        svgStr += `</g>`;
+
+        svgStr += `<g id="solar-array">`;
+        for (let row = 0; row < 2; row++) {
+            for (let col = 0; col < 3; col++) {
+                let px = -260 + col * 55;
+                let py = -220 + row * 65;
+                
+                svgStr += drawBox3D(px+20, py+15, 0, 6, 6, 30, '#A1B0AB', '#758782', '#566661');
+                let tiltRad = solarTilt * Math.PI / 180;
+                let lift = Math.sin(tiltRad) * 20;
+                let drop = Math.sin(tiltRad) * -20;
+
+                let c1 = project(px, py, 30 + drop), c2 = project(px+45, py, 30 + drop);
+                let c3 = project(px+45, py+35, 30 + lift), c4 = project(px, py+35, 30 + lift);
+
+                svgStr += makePoly([c4, c3, c2, c1], '#3F6078'); 
+                svgStr += `<line x1="${project(px+15, py, 30+drop).x}" y1="${project(px+15, py, 30+drop).y}" x2="${project(px+15, py+35, 30+lift).x}" y2="${project(px+15, py+35, 30+lift).y}" stroke="#69A8B5" stroke-width="1" opacity="0.6"/>`;
+                svgStr += `<line x1="${project(px+30, py, 30+drop).x}" y1="${project(px+30, py, 30+drop).y}" x2="${project(px+30, py+35, 30+lift).x}" y2="${project(px+30, py+35, 30+lift).y}" stroke="#69A8B5" stroke-width="1" opacity="0.6"/>`;
+                
+                if (row === 1 && col === 1) {
+                    svgStr += drawBox3D(px+22, py+20, 10, 12, 10, 15, '#F4F1E8', '#DCDFE1', '#B0B5B9');
+                }
+            }
+        }
+        svgStr += `</g>`;
+
+        // ---------------------------------------------------------
+        // LAYER 8: DYNAMIC CROP FIELD & SPRINKLER (Z-Sorted)
+        // ---------------------------------------------------------
+        svgStr += `<g id="dynamic-field">`;
+        
+        // Draw Sprinkler Base (Always at junction)
+        svgStr += drawBox3D(sprinkX-8, sprinkY-8, 0, 16, 16, 6, '#A1B0AB', '#758782', '#566661');
+        svgStr += drawBox3D(sprinkX-3, sprinkY-3, 6, 6, 6, 40, '#DCDFE1', '#B0B5B9', '#858E93');
+        
+        // Depth-sorted elements (Plants, Sensors)
+        plantDatabase.forEach(p => {
+            let pProj = project(p.x, p.y, p.z);
+            let scale = p.scale;
+            
+            // Animation logic: Cause & Effect
+            // Only plants within 120px radius of the active sprinkler will sway
+            let rotSway = 0;
+            if (sprinklerActive && p.dist < 120 && p.type < 3) {
+                rotSway = Math.sin(t * 8 + p.x) * 3; // Sway ±3 degrees
+            }
+
+            svgStr += `<g transform="translate(${pProj.x}, ${pProj.y}) scale(${scale}) rotate(${rotSway})">`;
+            
+            if (p.type === 0) {
+                // Small Leafy Plant
+                svgStr += `<path d="M 0 0 Q -10 -15 0 -25 Q 10 -15 0 0" fill="#5F8C50" />`;
+                svgStr += `<path d="M 0 0 Q -15 -5 -18 -15 Q -5 -10 0 0" fill="#4F774F" />`;
+                svgStr += `<path d="M 0 0 Q 15 -5 18 -15 Q 5 -10 0 0" fill="#7D9B67" />`;
+            } 
+            else if (p.type === 1) {
+                // Compact Bush Crop
+                svgStr += `<circle cx="-6" cy="-12" r="8" fill="#4F774F" />`;
+                svgStr += `<circle cx="6" cy="-10" r="7" fill="#7D9B67" />`;
+                svgStr += `<circle cx="0" cy="-18" r="9" fill="#5F8C50" />`;
+            }
+            else if (p.type === 2) {
+                // Taller Crop
+                svgStr += `<rect x="-1" y="-30" width="2" height="30" fill="#4F774F" />`;
+                svgStr += `<ellipse cx="0" cy="-30" rx="8" ry="4" fill="#7D9B67" />`;
+                svgStr += `<ellipse cx="-6" cy="-20" rx="6" ry="3" fill="#5F8C50" transform="rotate(-30 -6 -20)" />`;
+                svgStr += `<ellipse cx="6" cy="-10" rx="7" ry="3.5" fill="#4F774F" transform="rotate(30 6 -10)" />`;
+            }
+            else if (p.type === 3) {
+                // Edge Vegetation (Weeds/Grass)
+                svgStr += `<path d="M 0 0 Q -5 -8 -8 -10 Q -2 -5 0 0 M 0 0 Q 4 -12 6 -14 Q 2 -6 0 0" fill="#527052" />`;
+            }
+            else if (p.type === 4) {
+                // Smart Crop Sensor
+                svgStr += `<rect x="-1" y="-35" width="2" height="35" fill="#758782" />`;
+                svgStr += `<rect x="-4" y="-35" width="8" height="6" fill="#2C3531" />`;
+                svgStr += `<circle cx="0" cy="-32" r="2" fill="${activeColor}" filter="blur(0.5px)" />`;
+            }
+
+            svgStr += `</g>`;
+        });
+
+        // Sprinkler Rotating Head & Water Arcs (Rendered on top of plants)
+        let headPos = project(sprinkX, sprinkY, 46);
+        svgStr += `<g transform="translate(${headPos.x}, ${headPos.y})">`;
+        svgStr += `<rect x="-15" y="-5" width="30" height="10" fill="#E4B84A" transform="rotate(${sprinklerRot})" />`;
+        
+        if (sprinklerActive) {
+            // Arcs specifically targeting Beds B and C
+            for (let w = 0; w < 6; w++) {
+                let wAngle = sprinklerRot + (w * 60);
+                let dashOff = (t * -150) % 50;
+                svgStr += `<g transform="rotate(${wAngle})">
+                    <path d="M 15 0 Q 60 -50 120 20" fill="none" stroke="#69A8B5" stroke-width="2" stroke-dasharray="10 10" stroke-dashoffset="${dashOff}" opacity="0.6" />
+                </g>`;
+            }
+        }
+        svgStr += `</g></g>`; // End Dynamic Field
+
+        svg.innerHTML = svgStr;
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Parallax: Mountain Landscape</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            /* Sky Gradient: Light blue to warm horizon */
+            background: linear-gradient(to bottom, #B9D8E5 0%, #B9D8E5 40%, #EAD1C0 100%);
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * PARALLAX LAYERS
+         * Expanded to 10000px to allow massive sweeping parallax without clipping.
+         */
+        .layer {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 10000px;
+            height: 2160px;
+            will-change: transform, opacity;
+            transform: translate(-50%, -50%); 
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+
+        /* Depth Fills & Z-Indexes */
+        #sun-layer { z-index: 10; }
+        .sun { fill: #F4C95D; }
+
+        #cloud-layer { z-index: 15; opacity: 0.8; }
+        .cloud { fill: #E9E7DC; }
+
+        #far-mtn-layer { z-index: 20; }
+        .far-mtn { fill: #829BA3; }
+
+        #mid-mtn-layer { z-index: 30; }
+        .mid-mtn { fill: #526C72; }
+        .snow-cap { fill: #F2F0E6; }
+
+        #forest-layer { z-index: 40; }
+        .forest { fill: #294B43; }
+
+        /* The 3 New Foreground Depth Tones */
+        #fg-layer { z-index: 50; }
+        .fg-back { fill: #1A3331; }
+        .fg-mid { fill: #152B29; }
+        .fg-front { fill: #0F1F1E; }
+
+        #birds-layer { 
+            z-index: 45; 
+            width: 3840px; 
+        }
+        .bird {
+            fill: none;
+            stroke: #526C72;
+            stroke-width: 6;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        
+        <!-- LAYER 1: SUN -->
+        <div id="sun-layer" class="layer">
+            <svg viewBox="0 0 10000 2160">
+                <circle cx="5300" cy="950" r="280" class="sun" />
+            </svg>
+        </div>
+
+        <!-- LAYER 2: CLOUDS -->
+        <div id="cloud-layer" class="layer">
+            <svg viewBox="0 0 10000 2160">
+                <ellipse cx="4300" cy="700" rx="450" ry="80" class="cloud" />
+                <ellipse cx="4600" cy="650" rx="300" ry="60" class="cloud" />
+                <ellipse cx="6300" cy="850" rx="550" ry="100" class="cloud" />
+                <ellipse cx="5800" cy="800" rx="400" ry="80" class="cloud" />
+                <ellipse cx="7500" cy="600" rx="600" ry="120" class="cloud" />
+            </svg>
+        </div>
+
+        <!-- LAYER 3: FAR MOUNTAIN -->
+        <div id="far-mtn-layer" class="layer">
+            <svg viewBox="0 0 10000 2160">
+                <polygon points="0,2160 1000,1200 2000,1500 3000,1050 4000,1350 5200,850 6200,1250 7500,950 9000,1350 10000,2160" class="far-mtn" />
+            </svg>
+        </div>
+
+        <!-- LAYER 4: MID MOUNTAIN (HERO) -->
+        <div id="mid-mtn-layer" class="layer">
+            <svg viewBox="0 0 10000 2160">
+                <polygon points="0,2160 1500,1400 3000,1000 4500,550 6000,1300 7500,900 9000,1400 10000,2160" class="mid-mtn" />
+                <!-- Snow Caps[cite: 1] -->
+                <polygon points="4500,550 4750,850 4650,880 4580,810 4480,880 4380,800 4300,870 4220,780" class="snow-cap" />
+                <polygon points="3000,1000 3150,1180 3080,1200 3020,1150 2950,1200 2880,1150" class="snow-cap" />
+            </svg>
+        </div>
+
+        <!-- LAYER 5: DISTANT FOREST -->
+        <div id="forest-layer" class="layer">
+            <svg viewBox="0 0 10000 2160">
+                <path id="distant-forest-path" class="forest" d="" />
+            </svg>
+        </div>
+
+        <!-- LAYER 6: MULTI-LAYERED HERO FOREGROUND -->
+        <div id="fg-layer" class="layer">
+            <svg viewBox="0 0 10000 2160">
+                <!-- 3 Depth Tones for Foreground -->
+                <path id="fg-back-path" class="fg-back" d="" />
+                <path id="fg-mid-path" class="fg-mid" d="" />
+                <path id="fg-front-path" class="fg-front" d="" />
+            </svg>
+        </div>
+
+        <!-- BIRDS -->
+        <div id="birds-layer" class="layer" style="width: 3840px;">
+            <svg viewBox="0 0 3840 2160">
+                <path class="bird" d="M 0,20 Q 20,0 40,20 Q 60,0 80,20" transform="translate(1920, 600) scale(1.5)" />
+                <path class="bird" d="M 0,15 Q 15,0 30,15 Q 45,0 60,15" transform="translate(2050, 520) scale(1.2)" />
+            </svg>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * DETERMINISTIC PRNG
+         */
+        let seed = 142;
+        function random() {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        /**
+         * ORGANIC CONIFER GENERATOR
+         * Builds irregular, asymmetric, jagged silhouettes representing overlapping branch clusters.
+         */
+        function buildOrganicTree(cx, y, w, h, lean) {
+            let d = '';
+            let tiers = Math.floor(h / 70) + 4; // Tiers dynamically scale with height
+            
+            let leftPts = [];
+            let rightPts = [];
+            
+            leftPts.push({x: cx, y: y - h});
+            rightPts.push({x: cx, y: y - h});
+            
+            for(let i=1; i<=tiers; i++) {
+                let p = i/tiers;
+                // Canopy profile curve: wider faster at the top, tapering
+                let pEase = Math.pow(p, 0.75); 
+                
+                let tierW = w * pEase;
+                let tierY = (y - h) + (h * p);
+                
+                // Add aggressive irregularity and asymmetry to widths
+                let leftW = tierW * (0.5 + random() * 0.9);
+                let rightW = tierW * (0.5 + random() * 0.9);
+                
+                // Varied branch droop distances
+                let dropL = 30 + random() * 60;
+                let dropR = 30 + random() * 60;
+                
+                // Varied depth of the inward cuts
+                let cutL = 0.2 + random() * 0.45;
+                let cutR = 0.2 + random() * 0.45;
+                
+                // Continuous lean
+                let currentCX = cx + (lean * p);
+                
+                // Add outer tip of branch cluster
+                leftPts.push({x: currentCX - leftW, y: tierY});
+                rightPts.push({x: currentCX + rightW, y: tierY});
+                
+                // Cut back inwards for overlap silhouette
+                if(i < tiers) {
+                    leftPts.push({x: currentCX - leftW * cutL, y: tierY - dropL});
+                    rightPts.push({x: currentCX + rightW * cutR, y: tierY - dropR});
+                }
+            }
+            
+            // Tapered trunk/base connection
+            let bottomY = y + 80;
+            leftPts.push({x: cx + lean - w*0.25, y: bottomY});
+            rightPts.push({x: cx + lean + w*0.25, y: bottomY});
+            
+            // Compile SVG Path
+            d += `M ${leftPts[0].x},${leftPts[0].y} `;
+            for(let i=1; i<leftPts.length; i++) { d += `L ${leftPts[i].x},${leftPts[i].y} `; }
+            d += `L ${rightPts[rightPts.length-1].x},${rightPts[rightPts.length-1].y} `;
+            for(let i=rightPts.length-2; i>=0; i--) { d += `L ${rightPts[i].x},${rightPts[i].y} `; }
+            d += 'Z ';
+            
+            return d;
+        }
+
+        /**
+         * PROCEDURAL LANDSCAPE AGGREGATOR
+         */
+        function generateGround(baseY, variance) {
+            // Jagged, uneven ground opening up negative space between foliage
+            let d = `M 0,2160 L 0,${baseY} `;
+            for(let x=0; x<=10000; x+=120) {
+                let y = baseY + (Math.pow(random(), 2) * variance);
+                d += `L ${x},${y} `;
+            }
+            d += `L 10000,2160 Z `;
+            return d;
+        }
+
+        function populateTrees(pathStr, count, minH, maxH, minW, maxW, clearings) {
+            for(let i=0; i<count; i++) {
+                let x = random() * 10000;
+                
+                // Shunt heights down massively inside clearings to preserve mountain view
+                let inClearing = false;
+                clearings.forEach(c => {
+                    if(x > c.start && x < c.end) inClearing = true;
+                });
+                
+                // Exponential distribution: many shorter mid-foreground trees, fewer tall ones
+                let sizeFactor = Math.pow(random(), 2.5);
+                let h = minH + sizeFactor * (maxH - minH);
+                if (inClearing) h *= 0.25; 
+                
+                let w = minW + random() * (maxW - minW);
+                let lean = (random() - 0.5) * 120;
+                let y = 2080 + random() * 120; // Anchored irregularly on the jagged ground
+                
+                pathStr += buildOrganicTree(x, y, w, h, lean);
+            }
+            return pathStr;
+        }
+
+        function generateForegroundLayers() {
+            let backPath = generateGround(1850, 100);
+            let midPath = generateGround(1950, 150);
+            let frontPath = generateGround(2050, 200); // Extremely low ground baseline
+
+            // Clearings to keep the main mountain visible. 
+            // View spans ~3000 to ~9500 over the 5 second journey.
+            let clearings = [
+                {start: 4200, end: 5700}, // Start frame focus
+                {start: 7200, end: 8800}  // End frame focus
+            ];
+
+            // 1. Back FG Tone: Denser, moderate height
+            backPath = populateTrees(backPath, 140, 500, 1100, 100, 200, clearings);
+            
+            // 2. Mid FG Tone: Sparser, overlapping mid-heights
+            midPath = populateTrees(midPath, 80, 700, 1400, 150, 280, clearings);
+            
+            // 3. Front FG Tone: Large hero framing trees, very sparse centers
+            frontPath = populateTrees(frontPath, 35, 900, 1800, 200, 400, clearings);
+            
+            // Hardcode specific massive Hero Framing Trees for the journey
+            // Start Frame Framing (Center ~5000)
+            frontPath += buildOrganicTree(3500, 2200, 450, 1900, 120); // Left 1
+            frontPath += buildOrganicTree(3800, 2200, 380, 1500, 60);  // Left 2
+            frontPath += buildOrganicTree(6600, 2200, 480, 2000, -100); // Right 1
+
+            // End Frame Framing (Center ~7500)
+            frontPath += buildOrganicTree(6100, 2200, 500, 2100, 150); // Left sweeping past
+            frontPath += buildOrganicTree(9100, 2200, 420, 1950, -120); // Right 1
+            frontPath += buildOrganicTree(9400, 2200, 350, 1600, -60);  // Right 2
+
+            document.getElementById('fg-back-path').setAttribute('d', backPath);
+            document.getElementById('fg-mid-path').setAttribute('d', midPath);
+            document.getElementById('fg-front-path').setAttribute('d', frontPath);
+        }
+
+        // Fill Distant Forest (Old triangle-ish logic is fine for tiny distant shapes)
+        function makeDistantForest(width, baseHeight) {
+            let d = `M 0,2160 L 0,${baseHeight} `;
+            for(let x = 0; x <= width; x += 60) {
+                let y = baseHeight + (random() * 40 - 20);
+                d += `L ${x},${y} `;
+            }
+            d += `L ${width},2160 Z `;
+            for(let i=0; i<600; i++) {
+                let x = random() * width;
+                let h = 80 + random() * 250;
+                let w = h * 0.18;
+                let y = baseHeight + 10 + random() * 80;
+                d += `M ${x},${y-h} L ${x+w},${y} L ${x-w},${y} Z `;
+            }
+            return d;
+        }
+
+        // Execute Generation
+        document.getElementById('distant-forest-path').setAttribute('d', makeDistantForest(10000, 1500));
+        generateForegroundLayers();
+
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            linear: x => x,
+            outCubic: x => 1 - Math.pow(1 - x, 3),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS
+         */
+        const config = [
+            // --- REVEALS (0.0 - 0.8) ---
+            {
+                id: 'sun-layer',
+                tracks: {
+                    y: [ {t:0,v:400}, {t:1.0,v:0,e:'outCubic'} ],
+                    x: [ {t:0.8,v:0}, {t:4.8,v:-80,e:'inOutCubic'} ]
+                }
+            },
+            {
+                id: 'cloud-layer',
+                tracks: {
+                    opacity: [ {t:0.2,v:0}, {t:1.0,v:0.8,e:'outCubic'} ],
+                    x: [ {t:0.8,v:0}, {t:4.8,v:-150,e:'inOutCubic'} ]
+                }
+            },
+            {
+                id: 'far-mtn-layer',
+                tracks: {
+                    opacity: [ {t:0.2,v:0}, {t:0.8,v:1,e:'outCubic'} ],
+                    x: [ {t:0.8,v:0}, {t:4.8,v:-350,e:'inOutCubic'} ],
+                    scale: [ {t:3.5,v:1}, {t:4.8,v:1.01,e:'inOutCubic'} ]
+                }
+            },
+            {
+                id: 'mid-mtn-layer',
+                tracks: {
+                    opacity: [ {t:0.4,v:0}, {t:0.9,v:1,e:'outCubic'} ],
+                    x: [ {t:0.8,v:0}, {t:4.8,v:-800,e:'inOutCubic'} ],
+                    scale: [ {t:3.5,v:1}, {t:4.8,v:1.03,e:'inOutCubic'} ]
+                }
+            },
+            {
+                id: 'forest-layer',
+                tracks: {
+                    opacity: [ {t:0.5,v:0}, {t:1.0,v:1,e:'outCubic'} ],
+                    y: [ {t:0,v:200}, {t:1.0,v:0,e:'outCubic'} ],
+                    x: [ {t:0.8,v:0}, {t:4.8,v:-1600,e:'inOutCubic'} ],
+                    scale: [ {t:3.5,v:1}, {t:4.8,v:1.05,e:'inOutCubic'} ]
+                }
+            },
+            {
+                id: 'fg-layer',
+                tracks: {
+                    opacity: [ {t:0.6,v:0}, {t:1.1,v:1,e:'outCubic'} ],
+                    y: [ {t:0,v:300}, {t:1.1,v:0,e:'outCubic'} ],
+                    // Frontpan reduced slightly to match the 10000px canvas bounds
+                    x: [ {t:0.8,v:0}, {t:4.8,v:-2500,e:'inOutCubic'} ], 
+                    scale: [ {t:3.5,v:1}, {t:4.8,v:1.07,e:'inOutCubic'} ]
+                }
+            },
+            
+            // --- BIRDS JOURNEY ---
+            {
+                id: 'birds-layer',
+                tracks: {
+                    opacity: [ {t:1.5,v:0}, {t:1.8,v:1} ],
+                    x: [ {t:1.5,v:1200}, {t:4.8,v:-800,e:'inOutCubic'} ],
+                    y: [ {t:1.5,v:100}, {t:4.8,v:-50,e:'inOutCubic'} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let t = (timestamp - startTime) / 1000;
+
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                let x = evaluateTrack(conf.tracks.x, t, 0);
+                let y = evaluateTrack(conf.tracks.y, t, 0);
+                let scale = evaluateTrack(conf.tracks.scale, t, 1);
+                
+                el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) scale(${scale})`;
+                
+                if (conf.tracks.opacity !== undefined) {
+                    el.style.opacity = evaluateTrack(conf.tracks.opacity, t, 1);
+                }
+            });
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Glassmorphism Weather App - Revised</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition 16:9 Canvas.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #A9C9E8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background: linear-gradient(180deg, #6B9FD1 0%, #89B6DF 50%, #CDE0ED 100%);
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * CLOUD ENVIRONMENT LAYERS
+         * Urutan: SKY -> BACK -> MID -> FRONT -> GLASS PANEL
+         */
+        #cloud-layer-back, #cloud-layer-mid, #cloud-layer-front {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none;
+            will-change: transform;
+        }
+        
+        #cloud-layer-back { z-index: 10; opacity: 0.35; filter: blur(25px); }
+        #cloud-layer-mid { z-index: 20; opacity: 0.65; filter: blur(8px); }
+        #cloud-layer-front { z-index: 40; opacity: 0.95; filter: blur(1px); }
+
+        svg {
+            width: 100%; height: 100%;
+            display: block; overflow: visible;
+        }
+
+        /* 
+         * GLASSMORPHISM UI PANEL
+         * Proporsi: ~57% Width, ~60% Height dari Canvas (Safe margin terjaga)
+         */
+        #glass-panel {
+            position: absolute;
+            left: 50%; top: 50%;
+            /* Calculated dynamically via JS transform, defaults defined here */
+            transform: translate(-50%, -50%) scale(0.97);
+            
+            width: 2200px; 
+            height: 1300px;
+            z-index: 50;
+            
+            /* Glass Core */
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(45px); 
+            -webkit-backdrop-filter: blur(45px);
+            
+            /* Shaping & Border */
+            border-radius: 80px;
+            border: 2px solid rgba(255, 255, 255, 0.45);
+            border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+            border-right: 2px solid rgba(255, 255, 255, 0.15);
+            
+            /* Shadow & Depth */
+            box-shadow: 
+                0 60px 120px rgba(20, 50, 80, 0.18), 
+                inset 0 4px 10px rgba(255, 255, 255, 0.4);
+            
+            display: flex;
+            flex-direction: column;
+            overflow: hidden; /* Mengunci elemen seperti reflection & forecast animation agar tidak bocor */
+            
+            will-change: transform, opacity;
+            opacity: 0;
+        }
+
+        #glass-reflection {
+            position: absolute;
+            top: -50%; left: -50%;
+            width: 200%; height: 200%;
+            background: linear-gradient(
+                135deg, 
+                rgba(255,255,255,0) 0%, 
+                rgba(255,255,255,0) 45%, 
+                rgba(255,255,255,0.2) 50%, 
+                rgba(255,255,255,0) 55%, 
+                rgba(255,255,255,0) 100%
+            );
+            transform: translateX(-100%);
+            z-index: 100;
+            pointer-events: none;
+            will-change: transform;
+        }
+
+        /* 
+         * UI CONTENT: TOP SECTION
+         */
+        #ui-top {
+            flex: 1;
+            padding: 100px 140px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            z-index: 60;
+        }
+
+        #ui-left {
+            display: flex;
+            flex-direction: column;
+            color: #1A3B5C;
+        }
+
+        #location {
+            font-size: 45px;
+            font-weight: 700;
+            letter-spacing: 6px;
+            text-transform: uppercase;
+            opacity: 0.85;
+            margin-bottom: 10px;
+        }
+
+        #temperature-wrapper {
+            display: flex;
+            align-items: flex-start;
+        }
+
+        #temperature {
+            font-size: 380px;
+            font-weight: 200;
+            line-height: 0.9;
+            letter-spacing: -15px;
+        }
+
+        #degree {
+            font-size: 150px;
+            font-weight: 300;
+            margin-top: 40px;
+        }
+
+        #condition {
+            font-size: 65px;
+            font-weight: 500;
+            margin-top: 10px;
+            opacity: 0.9;
+        }
+
+        #details-row {
+            display: flex;
+            gap: 60px;
+            margin-top: 40px;
+            font-size: 30px;
+            font-weight: 600;
+            color: #2D5A85;
+            opacity: 0.7;
+        }
+
+        /* 
+         * MAIN WEATHER ICON 
+         */
+        #main-icon {
+            width: 500px;
+            height: 500px;
+            position: relative;
+        }
+
+        /* 
+         * UI CONTENT: BOTTOM FORECAST STRIP
+         * Terkunci di dalam #glass-panel, menggunakan overflow: hidden
+         */
+        #ui-bottom {
+            height: 400px;
+            border-top: 2px solid rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.08);
+            padding: 0 100px;
+            display: flex;
+            align-items: center;
+            z-index: 60;
+            overflow: hidden; 
+        }
+
+        #forecast-container {
+            display: flex;
+            justify-content: space-between;
+            gap: 40px;
+            will-change: transform;
+            width: 100%;
+        }
+
+        .forecast-card {
+            flex: 1;
+            max-width: 280px;
+            height: 280px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 40px;
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #1A3B5C;
+            box-shadow: 0 15px 30px rgba(30, 60, 90, 0.05);
+            opacity: 0; 
+            transform: translateX(100px);
+        }
+
+        .fc-day {
+            font-size: 28px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            opacity: 0.6;
+            margin-bottom: 20px;
+        }
+
+        .fc-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 25px;
+        }
+
+        .fc-temp {
+            font-size: 50px;
+            font-weight: 500;
+        }
+
+        /* Utils */
+        .op-0 { opacity: 0; }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        
+        <!-- CLOUD ENVIRONMENT -->
+        <div id="cloud-layer-back">
+            <svg viewBox="0 0 3840 2160" id="svg-back"></svg>
+        </div>
+        <div id="cloud-layer-mid">
+            <svg viewBox="0 0 3840 2160" id="svg-mid"></svg>
+        </div>
+        <div id="cloud-layer-front">
+            <svg viewBox="0 0 3840 2160" id="svg-front"></svg>
+        </div>
+
+        <!-- GLASS UI PANEL -->
+        <div id="glass-panel">
+            <div id="glass-reflection"></div>
+            
+            <div id="ui-top">
+                <div id="ui-left">
+                    <div id="location" class="op-0">SAN FRANCISCO</div>
+                    <div id="temperature-wrapper" class="op-0">
+                        <div id="temperature">24</div>
+                        <div id="degree">°</div>
+                    </div>
+                    <div id="condition" class="op-0">Partly Cloudy</div>
+                    <div id="details-row" class="op-0">
+                        <div>Humidity 68%</div>
+                        <div>Wind 12 km/h</div>
+                    </div>
+                </div>
+                
+                <!-- Stylized, structured weather icon -->
+                <div id="main-icon" class="op-0">
+                    <svg viewBox="0 0 500 500">
+                        <!-- Sun Glow -->
+                        <circle cx="300" cy="200" r="100" fill="#FFD54F" filter="blur(25px)" opacity="0.4"/>
+                        <!-- Rotating Sun -->
+                        <g id="main-sun" transform-origin="300 200">
+                            <circle cx="300" cy="200" r="75" fill="#FFD54F"/>
+                            <line x1="300" y1="80" x2="300" y2="40" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="300" y1="320" x2="300" y2="360" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="180" y1="200" x2="140" y2="200" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="420" y1="200" x2="460" y2="200" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="215" y1="115" x2="185" y2="85" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="385" y1="285" x2="415" y2="315" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="215" y1="285" x2="185" y2="315" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                            <line x1="385" y1="115" x2="415" y2="85" stroke="#FFD54F" stroke-width="12" stroke-linecap="round"/>
+                        </g>
+                        <!-- Solid Foreground Cloud (Recognizable shape overlapping the sun) -->
+                        <g filter="drop-shadow(0 25px 35px rgba(20, 50, 80, 0.15))" fill="#FFFFFF">
+                            <circle cx="150" cy="300" r="60"/>
+                            <circle cx="240" cy="250" r="90"/>
+                            <circle cx="340" cy="280" r="70"/>
+                            <circle cx="410" cy="310" r="45"/>
+                            <rect x="130" y="290" width="300" height="65" rx="32.5"/>
+                        </g>
+                    </svg>
+                </div>
+            </div>
+
+            <div id="ui-bottom">
+                <div id="forecast-container">
+                    <!-- Injected via JS -->
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /**
+         * DETERMINISTIC PRNG
+         */
+        let seed = 888;
+        function random() {
+            let x = Math.sin(seed++) * 10000;
+            return x - Math.floor(x);
+        }
+
+        /**
+         * PROCEDURAL CLOUD GENERATOR (Structured Geometry)
+         * Menghasilkan struktur cloud solid (menggunakan rect base dan multiple circle lobes) 
+         * di dalam tag <g> sehingga silhouette akan menyatu sempurna saat dirender.
+         */
+        function getCloudHTML(type, x, y, scale, speedMultiplier) {
+            let shapes = '';
+            // Konstruksi primitif didesain pada grid virtual 500x300
+            if (type === 'A') { 
+                // Type A - Large Puffy (1 large center, 2 medium, 1 small edge)
+                shapes = `
+                    <circle cx="150" cy="150" r="65"/>
+                    <circle cx="250" cy="100" r="95"/>
+                    <circle cx="360" cy="130" r="75"/>
+                    <circle cx="440" cy="165" r="45"/>
+                    <rect x="120" y="150" width="340" height="60" rx="30"/>
+                `;
+            } else if (type === 'B') { 
+                // Type B - Wide Low Cloud (Lebih lebar, lobe rendah)
+                shapes = `
+                    <circle cx="150" cy="170" r="45"/>
+                    <circle cx="230" cy="140" r="70"/>
+                    <circle cx="320" cy="130" r="80"/>
+                    <circle cx="410" cy="150" r="60"/>
+                    <circle cx="480" cy="180" r="35"/>
+                    <rect x="130" y="170" width="370" height="45" rx="22.5"/>
+                `;
+            } else if (type === 'C') { 
+                // Type C - Tall Cloud (Tinggi di satu sisi)
+                shapes = `
+                    <circle cx="160" cy="170" r="55"/>
+                    <circle cx="250" cy="70" r="105"/>
+                    <circle cx="340" cy="150" r="70"/>
+                    <rect x="140" y="150" width="240" height="75" rx="37.5"/>
+                `;
+            } else { 
+                // Type D - Small Soft Cloud (Kecil, lobe lembut)
+                shapes = `
+                    <circle cx="140" cy="160" r="45"/>
+                    <circle cx="210" cy="125" r="75"/>
+                    <circle cx="280" cy="165" r="40"/>
+                    <rect x="120" y="155" width="180" height="50" rx="25"/>
+                `;
+            }
+
+            return `<g class="cloud-shape" fill="#FFFFFF" 
+                       transform="translate(${x}, ${y}) scale(${scale})" 
+                       data-ox="${x}" data-oy="${y}" data-speed="${speedMultiplier}">
+                        ${shapes}
+                    </g>`;
+        }
+
+        function populateClouds(layerId, count, scaleMin, scaleMax, spreadY, speedBase) {
+            let svg = document.getElementById(layerId);
+            let html = '';
+            let types = ['A', 'B', 'C', 'D'];
+            
+            for(let i=0; i<count; i++) {
+                let type = types[Math.floor(random() * types.length)];
+                let x = random() * 4500 - 500; // Menyebar melintasi canvas
+                let y = random() * spreadY;
+                let scale = scaleMin + random() * (scaleMax - scaleMin);
+                let speedMult = speedBase * (0.8 + random() * 0.4); 
+                
+                html += getCloudHTML(type, x, y, scale, speedMult);
+            }
+            svg.innerHTML = html;
+        }
+
+        // Generate 3 depth layers
+        populateClouds('svg-back', 12, 1.2, 2.5, 900, 60); 
+        populateClouds('svg-mid', 8, 1.8, 3.2, 1100, 110);  
+        populateClouds('svg-front', 6, 2.5, 4.5, 1400, 180); 
+
+        /**
+         * FORECAST CARDS GENERATOR
+         */
+        const forecastData = [
+            { day: 'TODAY', temp: '24°', type: 'cloud' },
+            { day: 'FRI', temp: '26°', type: 'sun' },
+            { day: 'SAT', temp: '27°', type: 'sun' },
+            { day: 'SUN', temp: '25°', type: 'cloud' },
+            { day: 'MON', temp: '23°', type: 'rain' }
+        ];
+
+        const fcContainer = document.getElementById('forecast-container');
+        forecastData.forEach((data, index) => {
+            let card = document.createElement('div');
+            card.className = 'forecast-card';
+            card.id = `fc-card-${index}`;
+            
+            let iconSvg = '';
+            if (data.type === 'sun') {
+                iconSvg = `<circle cx="50" cy="50" r="35" fill="#FFD54F" />`;
+            } else if (data.type === 'cloud') {
+                iconSvg = `
+                    <circle cx="35" cy="55" r="20" fill="#FFFFFF"/>
+                    <circle cx="60" cy="40" r="30" fill="#FFFFFF"/>
+                    <circle cx="80" cy="55" r="20" fill="#FFFFFF"/>
+                    <rect x="30" y="55" width="55" height="20" rx="10" fill="#FFFFFF"/>
+                `;
+            } else if (data.type === 'rain') {
+                iconSvg = `
+                    <circle cx="35" cy="45" r="20" fill="#FFFFFF"/>
+                    <circle cx="60" cy="30" r="30" fill="#FFFFFF"/>
+                    <circle cx="80" cy="45" r="20" fill="#FFFFFF"/>
+                    <rect x="30" y="45" width="55" height="20" rx="10" fill="#FFFFFF"/>
+                    <line x1="40" y1="75" x2="32" y2="90" stroke="#89B6DF" stroke-width="5" stroke-linecap="round"/>
+                    <line x1="60" y1="70" x2="52" y2="85" stroke="#89B6DF" stroke-width="5" stroke-linecap="round"/>
+                    <line x1="80" y1="75" x2="72" y2="90" stroke="#89B6DF" stroke-width="5" stroke-linecap="round"/>
+                `;
+            }
+
+            card.innerHTML = `
+                <div class="fc-day">${data.day}</div>
+                <svg class="fc-icon" viewBox="0 0 100 100" filter="drop-shadow(0 5px 10px rgba(0,0,0,0.05))">${iconSvg}</svg>
+                <div class="fc-temp">${data.temp}</div>
+            `;
+            fcContainer.appendChild(card);
+        });
+
+        /**
+         * EASINGS & TRACK EVALUATION
+         */
+        const easings = {
+            linear: x => x,
+            outCubic: x => 1 - Math.pow(1 - x, 3),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const k1 = track[i], k2 = track[i + 1];
+                    const p = (t - k1.t) / (k2.t - k1.t);
+                    return k1.v + (k2.v - k1.v) * easings[k2.e || 'linear'](p);
+                }
+            }
+            return defaultValue;
+        }
+
+        const config = [
+            {
+                id: 'glass-panel',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:1.2,v:1,e:'outCubic'}, {t:11.5,v:1}, {t:12.0,v:0,e:'inOutCubic'} ],
+                    scale:   [ {t:0,v:0.95}, {t:1.5,v:1.0,e:'outCubic'}, {t:11.5,v:1.0}, {t:12.0,v:0.95,e:'inOutCubic'} ]
+                }
+            },
+            { id: 'location', tracks: { opacity: [ {t:1.4,v:0}, {t:1.8,v:0.85,e:'outCubic'} ] } },
+            { id: 'condition', tracks: { opacity: [ {t:1.6,v:0}, {t:2.0,v:0.9,e:'outCubic'} ] } },
+            { id: 'details-row', tracks: { opacity: [ {t:1.8,v:0}, {t:2.2,v:0.7,e:'outCubic'} ] } },
+            { id: 'main-icon', tracks: { opacity: [ {t:2.0,v:0}, {t:2.6,v:1,e:'outCubic'} ] } },
+            {
+                id: 'temperature-wrapper',
+                tracks: {
+                    opacity: [ {t:2.2,v:0}, {t:2.8,v:1,e:'outCubic'} ],
+                    y:       [ {t:2.2,v:60}, {t:2.8,v:0,e:'outCubic'} ]
+                }
+            },
+            {
+                id: 'glass-reflection',
+                tracks: {
+                    x: [ {t:0,v:-100}, {t:3.0,v:-100}, {t:4.8,v:100,e:'inOutCubic'}, {t:9.0,v:100}, {t:10.5,v:200,e:'inOutCubic'}, {t:12.0,v:200} ]
+                }
+            },
+            {
+                id: 'forecast-container',
+                tracks: {
+                    x: [ {t:0,v:0}, {t:8.0,v:0}, {t:9.5,v:-100,e:'inOutCubic'}, {t:11.0,v:-100}, {t:12.0,v:0,e:'inOutCubic'} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let elapsedTime = (timestamp - startTime) / 1000;
+            let t = elapsedTime % 12.0;
+
+            // 1. Evaluate Static Tracks
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                let opacity = conf.tracks.opacity ? evaluateTrack(conf.tracks.opacity, t, 1) : null;
+                let scale = conf.tracks.scale ? evaluateTrack(conf.tracks.scale, t, 1) : null;
+                let x = conf.tracks.x ? evaluateTrack(conf.tracks.x, t, 0) : null;
+                let y = conf.tracks.y ? evaluateTrack(conf.tracks.y, t, 0) : null;
+
+                if (conf.id === 'glass-panel') {
+                    // Center transform harus dipertahankan untuk responsive scaling
+                    el.style.transform = `translate(-50%, -50%) scale(${scale})`;
+                } else if (conf.id === 'temperature-wrapper') {
+                    el.style.transform = `translateY(${y}px)`;
+                } else if (conf.id === 'glass-reflection') {
+                    el.style.transform = `translateX(${x}%)`;
+                } else if (conf.id === 'forecast-container') {
+                    el.style.transform = `translateX(${x}px)`;
+                }
+
+                if (opacity !== null) el.style.opacity = opacity;
+            });
+
+            // 2. Forecast Cards Staggered Entry
+            for(let i=0; i<5; i++) {
+                let card = document.getElementById(`fc-card-${i}`);
+                let startEntry = 6.8 + (i * 0.15); 
+                
+                let cx = 100, cop = 0;
+                if (t >= startEntry && t < startEntry + 0.8) {
+                    let p = (t - startEntry) / 0.8;
+                    let eased = easings.outCubic(p);
+                    cx = 100 * (1 - eased);
+                    cop = eased;
+                } else if (t >= startEntry + 0.8 && t < 11.5) {
+                    cx = 0; cop = 1;
+                }
+                
+                card.style.transform = `translateX(${cx}px)`;
+                card.style.opacity = cop;
+            }
+
+            // 3. Dynamic Weather Text Update
+            const tempEl = document.getElementById('temperature');
+            const condEl = document.getElementById('condition');
+            if (t >= 5.0 && t <= 7.0) {
+                let p = (t - 5.0) / 2.0;
+                let val = 24 + easings.inOutCubic(p);
+                tempEl.innerText = val.toFixed(1).replace('.0', '');
+                if (p > 0.5) condEl.innerText = 'Mostly Cloudy';
+            } else if (t > 7.0 && t < 11.5) {
+                tempEl.innerText = '25';
+                condEl.innerText = 'Mostly Cloudy';
+            } else {
+                tempEl.innerText = '24';
+                condEl.innerText = 'Partly Cloudy';
+            }
+
+            // 4. Parallax Cloud Environment Translation
+            ['svg-back', 'svg-mid', 'svg-front'].forEach((id) => {
+                let svg = document.getElementById(id);
+                Array.from(svg.children).forEach(g => {
+                    let ox = parseFloat(g.getAttribute('data-ox'));
+                    let oy = parseFloat(g.getAttribute('data-oy'));
+                    let speed = parseFloat(g.getAttribute('data-speed'));
+                    
+                    let currentTransform = g.getAttribute('transform');
+                    let scaleMatch = currentTransform.match(/scale\(([^)]+)\)/);
+                    let scaleStr = scaleMatch ? scaleMatch[0] : 'scale(1)';
+                    
+                    let shift = (t * speed);
+                    let newX = ox + shift;
+                    
+                    // Wrapping agar animasi berulang halus melintasi batas viewport
+                    if (newX > 4000) newX -= 4800;
+                    
+                    g.setAttribute('transform', `translate(${newX}, ${oy}) ${scaleStr}`);
+                });
+            });
+
+            // 5. Sun Icon Rotation
+            let sunRot = (t / 12.0) * 35;
+            document.getElementById('main-sun').style.transform = `rotate(${sunRot}deg)`;
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

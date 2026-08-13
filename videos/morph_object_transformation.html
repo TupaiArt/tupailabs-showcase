@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Morph Object Transformation</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Arial Black', Arial, sans-serif;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #F1EEE6; /* Cream Background */
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * HERO OBJECT WRAPPER
+         */
+        #hero-wrapper {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 1000px;
+            height: 1000px;
+            margin-left: -500px;
+            margin-top: -500px;
+            will-change: transform;
+            transform-origin: center center;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            filter: drop-shadow(0px 30px 40px rgba(23, 35, 61, 0.15));
+        }
+
+        /* SVG ViewBox corresponds to coordinate mappings */
+        svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        /* Colored Shape Paths */
+        #shape-core { fill: #17233D; } /* Dark Navy */
+        #shape-upper { fill: #3568FF; } /* Electric Blue */
+        #shape-lower { fill: #FF8A3D; } /* Warm Orange */
+        #shape-extra { fill: #FF3B1F; } /* Red Accent (Eraser/Detail) */
+
+        /* Motion Trails for the final flight */
+        .trail {
+            fill: none;
+            stroke: #3568FF;
+            stroke-width: 14;
+            stroke-linecap: round;
+            opacity: 0;
+            stroke-dasharray: 500;
+            stroke-dashoffset: 500;
+            will-change: stroke-dashoffset, opacity;
+        }
+
+        /* 
+         * LABEL
+         */
+        #label {
+            position: absolute;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 38px;
+            font-weight: 800;
+            letter-spacing: 16px;
+            color: #17233D;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <div id="hero-wrapper">
+            <svg viewBox="0 0 1000 1000">
+                <!-- Motion Trails -->
+                <line x1="300" y1="520" x2="-100" y2="720" class="trail" id="trail1"/>
+                <line x1="500" y1="700" x2="100" y2="900" class="trail" id="trail2"/>
+                <line x1="280" y1="600" x2="-80" y2="780" class="trail" id="trail3" stroke="#FF8A3D" stroke-width="8"/>
+                
+                <!-- Main Interpolated Layers (Rendered Back to Front) -->
+                <path id="shape-core" d="" />
+                <path id="shape-upper" d="" />
+                <path id="shape-lower" d="" />
+                <path id="shape-extra" d="" />
+            </svg>
+        </div>
+        <div id="label">MORPH / 01</div>
+    </div>
+
+    <script>
+        /**
+         * SHAPE COORDINATE DEFINITIONS (1000x1000 ViewBox)
+         * State 0: PENCIL
+         * State 1: PAINT BRUSH
+         * State 2: PAPER SHEET
+         * State 3: PAPER AIRPLANE
+         * 
+         * All objects are natively built pointing RIGHT to align with the final airplane flight.
+         * The wrapper rotates to provide the correct visual orientation.
+         */
+
+        // LAYER 1 (Navy): Pencil Body -> Brush Handle -> Paper Body -> Plane Fuselage
+        const statesCore = [
+            [ {x:650,y:460}, {x:500,y:460}, {x:300,y:460}, {x:300,y:500}, {x:300,y:540}, {x:500,y:540}, {x:650,y:540}, {x:650,y:500} ],
+            [ {x:580,y:450}, {x:400,y:460}, {x:200,y:480}, {x:170,y:500}, {x:200,y:520}, {x:400,y:540}, {x:580,y:550}, {x:580,y:500} ],
+            [ {x:750,y:250}, {x:500,y:250}, {x:250,y:250}, {x:250,y:500}, {x:250,y:750}, {x:500,y:750}, {x:750,y:750}, {x:750,y:500} ],
+            [ {x:800,y:200}, {x:500,y:260}, {x:200,y:320}, {x:250,y:420}, {x:300,y:520}, {x:467,y:413}, {x:634,y:306}, {x:800,y:200} ]
+        ];
+
+        // LAYER 2 (Blue): Pencil Ferrule -> Brush Ferrule -> Paper Crease/Right-Half -> Plane Right Wing
+        const statesUpper = [
+            [ {x:300,y:460}, {x:280,y:460}, {x:260,y:460}, {x:260,y:500}, {x:260,y:540}, {x:280,y:540}, {x:300,y:540}, {x:300,y:500} ],
+            [ {x:650,y:450}, {x:610,y:445}, {x:580,y:450}, {x:580,y:500}, {x:580,y:550}, {x:610,y:555}, {x:650,y:550}, {x:650,y:500} ],
+            [ {x:750,y:250}, {x:625,y:375}, {x:500,y:500}, {x:250,y:750}, {x:400,y:750}, {x:750,y:750}, {x:750,y:500}, {x:750,y:250} ],
+            [ {x:800,y:200}, {x:634,y:306}, {x:467,y:413}, {x:300,y:520}, {x:420,y:590}, {x:540,y:660}, {x:670,y:430}, {x:800,y:200} ]
+        ];
+
+        // LAYER 3 (Orange): Pencil Tip -> Brush Bristles -> Paper Corner Fold -> Plane Keel
+        const statesLower = [
+            [ {x:820,y:500}, {x:760,y:485}, {x:700,y:460}, {x:650,y:460}, {x:650,y:540}, {x:700,y:540}, {x:760,y:515}, {x:820,y:500} ],
+            [ {x:850,y:500}, {x:820,y:420}, {x:750,y:400}, {x:650,y:450}, {x:650,y:550}, {x:750,y:600}, {x:830,y:570}, {x:850,y:500} ],
+            [ {x:750,y:500}, {x:625,y:625}, {x:500,y:750}, {x:500,y:750}, {x:600,y:750}, {x:750,y:750}, {x:750,y:600}, {x:750,y:500} ],
+            [ {x:800,y:200}, {x:634,y:306}, {x:467,y:413}, {x:300,y:520}, {x:280,y:600}, {x:453,y:466}, {x:626,y:333}, {x:800,y:200} ]
+        ];
+
+        // LAYER 4 (Red Accent): Pencil Eraser -> Brush Paint Detail -> Paper Sticker -> Collapses into Plane
+        const statesExtra = [
+            [ {x:260,y:460}, {x:230,y:460}, {x:210,y:470}, {x:210,y:500}, {x:210,y:530}, {x:230,y:540}, {x:260,y:540}, {x:260,y:500} ],
+            [ {x:200,y:480}, {x:170,y:485}, {x:150,y:500}, {x:150,y:500}, {x:150,y:500}, {x:170,y:515}, {x:200,y:520}, {x:200,y:500} ],
+            [ {x:350,y:350}, {x:400,y:350}, {x:400,y:400}, {x:400,y:400}, {x:350,y:400}, {x:350,y:400}, {x:350,y:350}, {x:350,y:350} ],
+            [ {x:634,y:306}, {x:634,y:306}, {x:634,y:306}, {x:634,y:306}, {x:634,y:306}, {x:634,y:306}, {x:634,y:306}, {x:634,y:306} ]
+        ];
+
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+            outExpo: x => x === 1 ? 1 : 1 - Math.pow(2, -10 * x)
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'] ? easings[kf2.e || 'linear'](progress) : progress;
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        // Global Container Transform Tracks
+        const wrapperTracks = {
+            rot: [
+                {t: 0.0, v: -10}, {t: 0.7, v: -10}, {t: 0.8, v: -10},
+                {t: 1.7, v: -15, e: 'inOutCubic'}, {t: 2.1, v: -15},
+                {t: 3.1, v: -5, e: 'inOutCubic'}, {t: 3.5, v: -5},
+                {t: 4.3, v: 18, e: 'inOutCubic'}, {t: 5.0, v: 18}
+            ],
+            scale: [
+                {t: 0.0, v: 1.0},
+                {t: 0.7, v: 1.05, e: 'inOutCubic'}, {t: 0.8, v: 0.95, e: 'inOutCubic'}, // Anticipation squash
+                {t: 1.7, v: 1.0, e: 'inOutCubic'}, {t: 2.0, v: 1.05, e: 'inOutCubic'},
+                {t: 2.1, v: 0.95, e: 'inOutCubic'},
+                {t: 3.1, v: 1.0, e: 'inOutCubic'}, {t: 3.4, v: 1.05, e: 'inOutCubic'},
+                {t: 3.5, v: 0.95, e: 'inOutCubic'},
+                {t: 4.3, v: 1.0, e: 'inOutCubic'},
+                {t: 5.0, v: 0.9, e: 'outExpo'}
+            ],
+            x: [ {t: 0.0, v: 0}, {t: 4.3, v: 0}, {t: 5.0, v: 60, e: 'outExpo'} ],
+            y: [ {t: 0.0, v: 0}, {t: 4.3, v: 0}, {t: 5.0, v: -25, e: 'outExpo'} ]
+        };
+
+        /**
+         * MORPHING & SPLINE LOGIC
+         * Converts points to Bezier curves using a tension parameter.
+         * Tension 0.0 = Sharp Geometric. Tension > 0.0 = Smooth Organic.
+         */
+        function solveCurve(pts, tension) {
+            let path = `M ${pts[0].x},${pts[0].y} `;
+            let len = pts.length;
+            for (let i = 0; i < len; i++) {
+                let p0 = pts[(i - 1 + len) % len];
+                let p1 = pts[i];
+                let p2 = pts[(i + 1) % len];
+                let p3 = pts[(i + 2) % len];
+                
+                let cp1x = p1.x + (p2.x - p0.x) * tension;
+                let cp1y = p1.y + (p2.y - p0.y) * tension;
+                let cp2x = p2.x - (p3.x - p1.x) * tension;
+                let cp2y = p2.y - (p3.y - p1.y) * tension;
+
+                path += `C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y} `;
+            }
+            path += "Z";
+            return path;
+        }
+
+        // Timeline mapped to 0.0 -> 3.0 state representation
+        function getStateProg(t, offset) {
+            let effT = Math.max(0, t - offset);
+            if (effT < 0.8) return 0; // Pencil
+            if (effT < 1.7) return easings.inOutCubic((effT - 0.8) / 0.9); // Pencil -> Brush
+            if (effT < 2.1) return 1; // Brush
+            if (effT < 3.1) return 1 + easings.inOutCubic((effT - 2.1) / 1.0); // Brush -> Paper
+            if (effT < 3.5) return 2; // Paper
+            if (effT < 4.3) return 2 + easings.inOutCubic((effT - 3.5) / 0.8); // Paper -> Plane
+            return 3; // Plane
+        }
+
+        // Tension dynamic adjustment for organic brush bristles vs geometric pencil/paper
+        function getTension(s) {
+            if (s < 0.8) return 0.0;
+            if (s < 1.7) return 0.25 * ((s - 0.8) / 0.9); // Ease into organic
+            if (s < 2.1) return 0.25; // Organic Brush
+            if (s < 3.1) return 0.25 - 0.25 * ((s - 2.1) / 1.0); // Ease back to sharp
+            return 0.0;
+        }
+
+        // Lerps the exact point coordinates
+        function getInterpolatedPoints(states, stateFloat) {
+            let idx = Math.floor(stateFloat);
+            if(idx >= 3) return states[3];
+            let t = stateFloat - idx;
+            return states[idx].map((p, i) => ({
+                x: p.x + (states[idx+1][i].x - p.x) * t,
+                y: p.y + (states[idx+1][i].y - p.y) * t
+            }));
+        }
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let t = (timestamp - startTime) / 1000;
+
+            // 1. Evaluate Wrapper Container Position & Deformation
+            let rx = evaluateTrack(wrapperTracks.x, t, 0);
+            let ry = evaluateTrack(wrapperTracks.y, t, 0);
+            let scale = evaluateTrack(wrapperTracks.scale, t, 1);
+            let rot = evaluateTrack(wrapperTracks.rot, t, 0);
+            
+            document.getElementById('hero-wrapper').style.transform = `translate(${rx}px, ${ry}px) rotate(${rot}deg) scale(${scale})`;
+
+            // 2. Evaluate Staggered Morph States
+            let sCore = getStateProg(t, 0.0);
+            let sUpper = getStateProg(t, 0.04); // Stagger by 40ms
+            let sLower = getStateProg(t, 0.08); // Stagger by 80ms
+            let sExtra = getStateProg(t, 0.12); // Stagger by 120ms
+
+            let ptsCore = getInterpolatedPoints(statesCore, sCore);
+            let ptsUpper = getInterpolatedPoints(statesUpper, sUpper);
+            let ptsLower = getInterpolatedPoints(statesLower, sLower);
+            let ptsExtra = getInterpolatedPoints(statesExtra, sExtra);
+
+            let tCore = getTension(sCore);
+            let tUpper = getTension(sUpper);
+            let tLower = getTension(sLower);
+            let tExtra = getTension(sExtra);
+
+            document.getElementById('shape-core').setAttribute('d', solveCurve(ptsCore, tCore));
+            document.getElementById('shape-upper').setAttribute('d', solveCurve(ptsUpper, tUpper));
+            document.getElementById('shape-lower').setAttribute('d', solveCurve(ptsLower, tLower));
+            document.getElementById('shape-extra').setAttribute('d', solveCurve(ptsExtra, tExtra));
+
+            // 3. Motion Trails for Final Plane Flight
+            let trails = [document.getElementById('trail1'), document.getElementById('trail2'), document.getElementById('trail3')];
+            if (t >= 4.3) {
+                let MathProg = Math.min(1, (t - 4.3) / 0.7);
+                let trailOpacity = MathProg < 0.2 ? MathProg / 0.2 : 1 - (MathProg - 0.2) / 0.8;
+                let dashOffset = 500 - (MathProg * 1000);
+                
+                trails.forEach(tr => {
+                    tr.style.opacity = trailOpacity;
+                    tr.style.strokeDashoffset = dashOffset;
+                });
+            } else {
+                trails.forEach(tr => tr.style.opacity = 0);
+            }
+
+            // Loop forever, deterministic state maps any t value
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

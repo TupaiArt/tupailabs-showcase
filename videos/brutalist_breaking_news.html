@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Brutalist Breaking News</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Arial Black', Arial, sans-serif;
+            text-transform: uppercase;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #F2F0E8; /* Brutalist Off-White */
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+            color: #111111;
+        }
+
+        /* 
+         * EDITORIAL FRAME
+         */
+        #main-frame {
+            position: absolute;
+            left: 50px;
+            top: 50px;
+            width: 3740px;
+            height: 2060px;
+            border: 8px solid #111111;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* 
+         * TOP NAV BAR
+         */
+        #top-bar {
+            height: 120px;
+            border-bottom: 8px solid #111111;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 40px;
+            font-size: 55px;
+            background-color: #F2F0E8;
+            z-index: 100;
+        }
+
+        .live-indicator {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        #live-dot {
+            width: 45px;
+            height: 45px;
+            background-color: #111111; /* Changes to red */
+            border-radius: 50%; /* The only exception for a 'dot' */
+        }
+
+        /* 
+         * BOTTOM TICKER BAR
+         */
+        #bottom-bar {
+            height: 140px;
+            border-top: 8px solid #111111;
+            background-color: #111111;
+            color: #F2F0E8;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        #ticker-text {
+            font-size: 70px;
+            white-space: nowrap;
+            will-change: transform;
+            padding-left: 50px;
+        }
+
+        /* 
+         * MAIN CONTENT AREA
+         */
+        #content-area {
+            flex: 1;
+            position: relative;
+            background-color: #F2F0E8;
+        }
+
+        /* Vertical Divider */
+        #vert-divider {
+            position: absolute;
+            top: 0;
+            width: 8px;
+            height: 100%;
+            background-color: #111111;
+            z-index: 50;
+            will-change: left;
+        }
+
+        /* Horizontal Divider */
+        #horiz-divider {
+            position: absolute;
+            left: 0;
+            height: 8px;
+            background-color: #111111;
+            z-index: 49;
+            will-change: top, width;
+        }
+
+        /* 
+         * RED BREAKING BLOCK
+         */
+        #breaking-block {
+            position: absolute;
+            top: 0;
+            height: 550px;
+            background-color: #FF3B1F;
+            color: #F2F0E8;
+            border-right: 8px solid #111111;
+            border-bottom: 8px solid #111111;
+            padding: 50px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            z-index: 60;
+            will-change: left, width;
+        }
+        
+        #breaking-block h1 {
+            margin: 0;
+            font-size: 160px;
+            line-height: 0.9;
+            letter-spacing: -5px;
+        }
+
+        /* 
+         * HEADLINE
+         */
+        #headline-wrapper {
+            position: absolute;
+            z-index: 40;
+            will-change: transform;
+            transform-origin: top left;
+        }
+
+        .headline-text {
+            margin: 0;
+            font-size: 380px;
+            line-height: 0.85;
+            letter-spacing: -15px;
+            color: #111111;
+            white-space: nowrap;
+        }
+
+        /* 
+         * METADATA BLOCKS (Info Flood)
+         */
+        .meta-block {
+            position: absolute;
+            background-color: #F2F0E8;
+            border: 6px solid #111111;
+            padding: 30px 40px;
+            font-size: 75px;
+            z-index: 55;
+            will-change: transform;
+            white-space: nowrap;
+        }
+
+        #meta-report { font-size: 85px; }
+        
+        #meta-tech { 
+            background-color: #111111; 
+            color: #F2F0E8; 
+            border: none;
+        }
+
+        #meta-time {
+            font-family: 'Arial', sans-serif;
+            font-weight: 900;
+            font-size: 120px;
+            letter-spacing: -2px;
+            border-width: 8px;
+        }
+
+        /* 
+         * BACKGROUND GIANT NUMBER
+         */
+        #bg-number {
+            position: absolute;
+            left: 50px;
+            bottom: -150px;
+            font-size: 1400px;
+            line-height: 1;
+            color: #111111;
+            opacity: 0;
+            z-index: 10;
+            letter-spacing: -80px;
+            pointer-events: none;
+            will-change: opacity;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <div id="main-frame">
+            
+            <!-- TOP NAV -->
+            <div id="top-bar">
+                <div>NEWSROOM_01</div>
+                <div>12 AUG 2026</div>
+                <div class="live-indicator">
+                    <div id="live-dot"></div>
+                    <div id="live-text">LIVE</div>
+                </div>
+            </div>
+
+            <!-- CONTENT AREA -->
+            <div id="content-area">
+                
+                <!-- BACKGROUND GRAPHIC -->
+                <div id="bg-number">047</div>
+
+                <!-- STRUCTURAL DIVIDERS -->
+                <div id="vert-divider"></div>
+                <div id="horiz-divider"></div>
+
+                <!-- BREAKING BLOCK -->
+                <div id="breaking-block">
+                    <h1>BREAKING<br>NEWS</h1>
+                </div>
+
+                <!-- HERO HEADLINE -->
+                <div id="headline-wrapper">
+                    <h1 class="headline-text">THE FUTURE</h1>
+                    <h1 class="headline-text">JUST</h1>
+                    <h1 class="headline-text">CHANGED</h1>
+                </div>
+
+                <!-- INFO FLOOD BLOCKS -->
+                <div id="meta-report" class="meta-block">REPORT / 047</div>
+                <div id="meta-tech" class="meta-block">TECHNOLOGY / LIVE REPORT</div>
+                <div id="meta-time" class="meta-block">08:42:<span id="seconds-val">17</span> UTC</div>
+
+            </div>
+
+            <!-- BOTTOM TICKER -->
+            <div id="bottom-bar">
+                <div id="ticker-text">
+                    MARKETS RISE &nbsp;//&nbsp; GLOBAL UPDATE &nbsp;//&nbsp; LIVE REPORT &nbsp;//&nbsp; MORE TO COME &nbsp;//&nbsp; MARKETS RISE &nbsp;//&nbsp; GLOBAL UPDATE &nbsp;//&nbsp; LIVE REPORT &nbsp;//&nbsp; MORE TO COME &nbsp;//&nbsp; MARKETS RISE &nbsp;//&nbsp; GLOBAL UPDATE &nbsp;//&nbsp; LIVE REPORT &nbsp;//&nbsp; MORE TO COME &nbsp;//&nbsp; MARKETS RISE &nbsp;//&nbsp; GLOBAL UPDATE &nbsp;//&nbsp; LIVE REPORT &nbsp;//&nbsp; MORE TO COME
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            linear: x => x,
+            outExpo: x => x === 1 ? 1 : 1 - Math.pow(2, -10 * x),
+            /* Sharp architectural snap easing */
+            outQuint: x => 1 - Math.pow(1 - x, 5),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'outQuint'](progress); // Default to sharp outQuint
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS
+         * 0.0 - 0.7s : STATIC NEWSROOM (slightly misaligned)
+         * 0.7 - 1.4s : BREAKING ALERT
+         * 1.4 - 2.3s : HEADLINE TAKEOVER
+         * 2.3 - 3.2s : INFORMATION FLOOD
+         * 3.2 - 4.1s : BRUTALIST RECONFIGURATION
+         * 4.1 - 5.0s : FINAL STATE
+         */
+        const config = [
+            
+            // --- STRUCTURAL DIVIDERS ---
+            {
+                id: 'vert-divider',
+                // Starts at 900, snaps to 1200 during reconfiguration
+                tracks: {
+                    left: [ {t:0,v:900}, {t:3.2,v:900}, {t:3.7,v:1200,e:'outQuint'} ]
+                }
+            },
+            {
+                id: 'horiz-divider',
+                // Appears under headline, stretches across during reconfiguration
+                tracks: {
+                    top: [ {t:0,v:1250}, {t:3.2,v:1250}, {t:3.7,v:1450,e:'outQuint'} ],
+                    width: [ {t:0,v:0}, {t:2.2,v:0}, {t:2.7,v:3740,e:'outQuint'} ]
+                }
+            },
+
+            // --- RED BREAKING BLOCK ---
+            {
+                id: 'breaking-block',
+                tracks: {
+                    left: [ {t:0,v:-1000}, {t:0.7,v:-1000}, {t:1.2,v:0,e:'outQuint'} ],
+                    width: [ {t:0,v:900}, {t:3.2,v:900}, {t:3.7,v:1200,e:'outQuint'} ]
+                }
+            },
+
+            // --- HEADLINE ---
+            {
+                id: 'headline-wrapper',
+                tracks: {
+                    // Starts slightly off-axis/misaligned, then snaps huge and centers
+                    x: [ {t:0,v:1050}, {t:1.4,v:1050}, {t:2.0,v:950,e:'outQuint'}, {t:3.2,v:950}, {t:3.7,v:1250,e:'outQuint'} ],
+                    y: [ {t:0,v:450}, {t:1.4,v:450}, {t:2.0,v:50,e:'outQuint'}, {t:3.2,v:50}, {t:3.7,v:80,e:'outQuint'} ],
+                    scale: [ {t:0,v:0.45}, {t:1.4,v:0.45}, {t:2.0,v:1.0,e:'outQuint'} ],
+                    rot: [ {t:0,v:-2}, {t:1.4,v:-2}, {t:1.9,v:0,e:'outQuint'} ]
+                }
+            },
+
+            // --- INFO FLOOD METADATA ---
+            {
+                id: 'meta-report',
+                tracks: {
+                    // Flies in from left, lands in left column
+                    x: [ {t:0,v:-800}, {t:2.3,v:-800}, {t:2.8,v:50,e:'outQuint'} ],
+                    y: [ {t:0,v:650}, {t:3.2,v:650}, {t:3.7,v:750,e:'outQuint'} ]
+                }
+            },
+            {
+                id: 'meta-tech',
+                tracks: {
+                    // Flies in from bottom right, lands below headline
+                    x: [ {t:0,v:4000}, {t:2.4,v:4000}, {t:2.9,v:1250,e:'outQuint'} ],
+                    y: [ {t:0,v:1250}, {t:3.2,v:1250}, {t:3.7,v:1450,e:'outQuint'} ]
+                }
+            },
+            {
+                id: 'meta-time',
+                tracks: {
+                    // Flies in from bottom, lands bottom right
+                    x: [ {t:0,v:4000}, {t:2.5,v:4000}, {t:3.0,v:1700,e:'outQuint'}, {t:3.2,v:1700}, {t:3.7,v:1450,e:'outQuint'} ],
+                    y: [ {t:0,v:2000}, {t:2.5,v:2000}, {t:3.0,v:1500,e:'outQuint'}, {t:3.2,v:1500}, {t:3.7,v:1200,e:'outQuint'} ]
+                }
+            },
+
+            // --- BACKGROUND NUMBER ---
+            {
+                id: 'bg-number',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:2.3,v:0}, {t:2.8,v:0.08,e:'linear'} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        let tickerOffset = 0;
+        let lastTime = 0;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let t = (timestamp - startTime) / 1000;
+            let dt = t - lastTime;
+            lastTime = t;
+
+            // 1. Process Evaluator Tracks
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                // Handle standard transforms
+                if (conf.tracks.x !== undefined || conf.tracks.y !== undefined || conf.tracks.scale !== undefined || conf.tracks.rot !== undefined) {
+                    let x = evaluateTrack(conf.tracks.x, t, 0);
+                    let y = evaluateTrack(conf.tracks.y, t, 0);
+                    let scale = evaluateTrack(conf.tracks.scale, t, 1);
+                    let rot = evaluateTrack(conf.tracks.rot, t, 0);
+                    el.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg) scale(${scale})`;
+                }
+
+                // Handle direct dimensional layout changes (Brutalist shifting)
+                if (conf.tracks.left !== undefined) {
+                    el.style.left = evaluateTrack(conf.tracks.left, t, 0) + 'px';
+                }
+                if (conf.tracks.top !== undefined) {
+                    el.style.top = evaluateTrack(conf.tracks.top, t, 0) + 'px';
+                }
+                if (conf.tracks.width !== undefined) {
+                    el.style.width = evaluateTrack(conf.tracks.width, t, 0) + 'px';
+                }
+
+                // Opacity
+                if (conf.tracks.opacity !== undefined) {
+                    el.style.opacity = evaluateTrack(conf.tracks.opacity, t, 1);
+                }
+            });
+
+            // 2. Continuous Ticker Logic
+            // Speed up significantly during Reconfiguration (3.2s)
+            let tickerSpeed = (t >= 3.2 && t <= 4.1) ? 1200 : 400; 
+            tickerOffset -= tickerSpeed * dt;
+            document.getElementById('ticker-text').style.transform = `translateX(${tickerOffset}px)`;
+
+            // 3. Live Indicator Logic (Blink & Color State)
+            const liveDot = document.getElementById('live-dot');
+            const liveText = document.getElementById('live-text');
+            
+            // Blinks twice a second
+            let isBlinking = Math.floor(t * 2) % 2 === 0;
+            
+            if (t >= 0.7) {
+                // BREAKING STATE
+                liveDot.style.backgroundColor = isBlinking ? '#FF3B1F' : 'transparent';
+                liveText.style.color = '#FF3B1F';
+            } else {
+                // NORMAL STATE
+                liveDot.style.backgroundColor = isBlinking ? '#111111' : 'transparent';
+                liveText.style.color = '#111111';
+            }
+
+            // 4. Clock Increment
+            // Starts at 17, adds 1 per second
+            let currentSeconds = 17 + Math.floor(t);
+            document.getElementById('seconds-val').innerText = currentSeconds;
+
+            // Loop forever, deterministic state maps any t value
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation Loop
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

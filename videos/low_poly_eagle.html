@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Director's Vision — Low Poly Animal: Eagle</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #A9C2DF; }
+        canvas { width: 100vw; height: 100vh; display: block; object-fit: contain; }
+    </style>
+</head>
+<body>
+    <canvas id="comp"></canvas>
+    <script>
+        const canvas = document.getElementById('comp');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        const W = 3840;
+        const H = 2160;
+        canvas.width = W;
+        canvas.height = H;
+
+        // Custom PRNG for deterministic low-poly noise
+        let seed = 42;
+        function random() {
+            let t = seed += 0x6D2B79F5;
+            t = Math.imul(t ^ t >>> 15, t | 1);
+            t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+            return ((t ^ t >>> 14) >>> 0) / 4294967296;
+        }
+        function randRange(min, max) { return min + random() * (max - min); }
+
+        // --- MINI 3D ENGINE ---
+        class Node {
+            constructor(name) {
+                this.name = name;
+                this.children = [];
+                this.faces = []; // { verts: [[x,y,z], [x,y,z], [x,y,z]], baseColor: [r,g,b] }
+                this.tx = 0; this.ty = 0; this.tz = 0;
+                this.rx = 0; this.ry = 0; this.rz = 0;
+                this.sx = 1; this.sy = 1; this.sz = 1;
+                this.matrix = new DOMMatrix();
+            }
+            update(parentMatrix) {
+                this.matrix = parentMatrix
+                    .translate(this.tx, this.ty, this.tz)
+                    .rotate(this.rx, this.ry, this.rz)
+                    .scale(this.sx, this.sy, this.sz);
+                for (let c of this.children) c.update(this.matrix);
+            }
+            collectFaces(outArray) {
+                for (let f of this.faces) {
+                    let tf = f.verts.map(v => new DOMPoint(v[0], v[1], v[2]).matrixTransform(this.matrix));
+                    outArray.push({ verts: tf, baseColor: f.baseColor });
+                }
+                for (let c of this.children) c.collectFaces(outArray);
+            }
+        }
+
+        // --- PROCEDURAL MESH GENERATORS ---
+        function varyColor(c) {
+            let v = randRange(-12, 12);
+            return [Math.max(0, Math.min(255, c[0]+v)), Math.max(0, Math.min(255, c[1]+v)), Math.max(0, Math.min(255, c[2]+v))];
+        }
+
+        function createLoft(node, rings, colorBase, segments = 8) {
+            let verts = [];
+            for (let r of rings) {
+                let ringVerts = [];
+                for (let i = 0; i < segments; i++) {
+                    let a = (i / segments) * Math.PI * 2;
+                    ringVerts.push([
+                        r.x,
+                        r.y + Math.cos(a) * r.ry,
+                        r.z + Math.sin(a) * r.rz
+                    ]);
+                }
+                verts.push(ringVerts);
+            }
+            // Generate side faces
+            for (let i = 0; i < rings.length - 1; i++) {
+                for (let j = 0; j < segments; j++) {
+                    let jn = (j + 1) % segments;
+                    node.faces.push({ verts: [verts[i][j], verts[i][jn], verts[i+1][j]], baseColor: varyColor(colorBase) });
+                    node.faces.push({ verts: [verts[i+1][j], verts[i][jn], verts[i+1][jn]], baseColor: varyColor(colorBase) });
+                }
+            }
+            // Front & Back Caps
+            let backCenter = [rings[0].x, rings[0].y, rings[0].z];
+            for (let j = 0; j < segments; j++) node.faces.push({ verts: [verts[0][(j+1)%segments], verts[0][j], backCenter], baseColor: varyColor(colorBase) });
+            
+            let frontCenter = [rings[rings.length-1].x, rings[rings.length-1].y, rings[rings.length-1].z];
+            for (let j = 0; j < segments; j++) node.faces.push({ verts: [verts[rings.length-1][j], verts[rings.length-1][(j+1)%segments], frontCenter], baseColor: varyColor(colorBase) });
+        }
+
+        function buildWingPart(node, sections, colorBase) {
+            let verts = [];
+            for (let s of sections) {
+                verts.push([
+                    [s.x + s.chord * 0.35, 0, s.z],      // Leading edge (+X)
+                    [s.x, -s.thick, s.z],                // Top (-Y)
+                    [s.x - s.chord * 0.65, 0, s.z],      // Trailing edge (-X)
+                    [s.x, s.thick, s.z]                  // Bottom (+Y)
+                ]);
+            }
+            for (let i = 0; i < sections.length - 1; i++) {
+                let v0 = verts[i], v1 = verts[i+1];
+                // Top
+                node.faces.push({ verts: [v0[0], v0[1], v1[0]], baseColor: varyColor(colorBase) });
+                node.faces.push({ verts: [v1[0], v0[1], v1[1]], baseColor: varyColor(colorBase) });
+                node.faces.push({ verts: [v0[1], v0[2], v1[1]], baseColor: varyColor(colorBase) });
+                node.faces.push({ verts: [v1[1], v0[2], v1[2]], baseColor: varyColor(colorBase) });
+                // Bottom
+                node.faces.push({ verts: [v0[0], v1[0], v0[3]], baseColor: varyColor(colorBase) });
+                node.faces.push({ verts: [v1[0], v1[3], v0[3]], baseColor: varyColor(colorBase) });
+                node.faces.push({ verts: [v0[3], v1[3], v0[2]], baseColor: varyColor(colorBase) });
+                node.faces.push({ verts: [v1[3], v1[2], v0[2]], baseColor: varyColor(colorBase) });
+            }
+            // Tip cap
+            let last = verts[verts.length-1];
+            node.faces.push({ verts: [last[0], last[1], last[2]], baseColor: varyColor(colorBase) });
+            node.faces.push({ verts: [last[0], last[2], last[3]], baseColor: varyColor(colorBase) });
+            // Base cap
+            let first = verts[0];
+            node.faces.push({ verts: [first[0], first[2], first[1]], baseColor: varyColor(colorBase) });
+            node.faces.push({ verts: [first[0], first[3], first[2]], baseColor: varyColor(colorBase) });
+        }
+
+        // Builds a single tail feather: diamond cross-section (broad z-width facets
+        // top/bottom = "bidang besar", thin y-thick facets left/right = "tepi tajam").
+        // sections go narrow -> wide -> wide -> sharp point, so the feather reads as
+        // "ujung lebar dan runcing" instead of one thin tapering spike.
+        function buildFeather(node, sections, colorBase) {
+            let verts = [];
+            for (let s of sections) {
+                verts.push([
+                    [s.x, -s.thick, 0],   // top
+                    [s.x, 0, s.width],    // right
+                    [s.x, s.thick, 0],    // bottom
+                    [s.x, 0, -s.width]    // left
+                ]);
+            }
+            for (let i = 0; i < sections.length - 1; i++) {
+                let v0 = verts[i], v1 = verts[i + 1];
+                for (let k = 0; k < 4; k++) {
+                    let kn = (k + 1) % 4;
+                    node.faces.push({ verts: [v0[k], v0[kn], v1[k]], baseColor: varyColor(colorBase) });
+                    node.faces.push({ verts: [v1[k], v0[kn], v1[kn]], baseColor: varyColor(colorBase) });
+                }
+            }
+            // Narrow base cap where the feather meets the tail root
+            let first = verts[0];
+            let baseCenter = [sections[0].x, 0, 0];
+            for (let k = 0; k < 4; k++) {
+                let kn = (k + 1) % 4;
+                node.faces.push({ verts: [first[kn], first[k], baseCenter], baseColor: varyColor(colorBase) });
+            }
+        }
+
+        // --- EAGLE ASSEMBLY ---
+        const C_BODY = [70, 48, 38];
+        const C_HEAD = [240, 245, 250];
+        const C_BEAK = [255, 185, 15];
+        const C_TAIL = [225, 230, 235];
+        const C_WING = [85, 60, 48];
+        const C_FEATHER = [45, 30, 25];
+
+        let rootNode = new Node("Root");
+        
+        // 1. Body
+        let bodyNode = new Node("Body");
+        createLoft(bodyNode, [
+            {x: -150, y: 5, z: 0, ry: 20, rz: 15},   // Tail root
+            {x: -70,  y: 12, z: 0, ry: 55, rz: 40},  // Belly
+            {x: 0,    y: 8, z: 0, ry: 70, rz: 50},   // Core
+            {x: 50,   y: -2, z: 0, ry: 65, rz: 45},  // Chest
+            {x: 95,   y: -15, z: 0, ry: 40, rz: 30}  // Neck root
+        ], C_BODY, 8);
+        rootNode.children.push(bodyNode);
+
+        // 2. Head
+        let headNode = new Node("Head");
+        headNode.tx = 95; headNode.ty = -15;
+        createLoft(headNode, [
+            {x: 0, y: 0, z: 0, ry: 40, rz: 30},
+            {x: 20, y: -12, z: 0, ry: 35, rz: 25},
+            {x: 45, y: -18, z: 0, ry: 28, rz: 20},
+            {x: 65, y: -8, z: 0, ry: 22, rz: 18}
+        ], C_HEAD, 8);
+        bodyNode.children.push(headNode);
+
+        // 3. Beak
+        let beakNode = new Node("Beak");
+        beakNode.tx = 65; beakNode.ty = -8;
+        createLoft(beakNode, [
+            {x: 0, y: 0, z: 0, ry: 20, rz: 16},
+            {x: 20, y: 8, z: 0, ry: 14, rz: 10},
+            {x: 35, y: 22, z: 0, ry: 7, rz: 5},
+            {x: 42, y: 35, z: 0, ry: 0, rz: 0}
+        ], C_BEAK, 6);
+        headNode.children.push(beakNode);
+
+        // 4. Tail — side-view silhouette: 6-8 individual tail feathers stacked/layered
+        // top-to-bottom and running near-parallel backward off the body, NOT a fan
+        // that opens outward and NOT a single tapering spike.
+        let tailNode = new Node("Tail");
+        tailNode.tx = -140; tailNode.ty = 5;
+
+        // Thick root wedge — feathers merge into the back of the body here
+        createLoft(tailNode, [
+            {x: 0,   y: 0, z: 0, ry: 9,  rz: 14},
+            {x: -14, y: 0, z: 0, ry: 8,  rz: 9}
+        ], C_TAIL, 8);
+
+        let tailFeathers = [];
+        const TAIL_COUNT = 7; // 6-8 individual feathers, visible as separate layers from the side
+        // Center feather(s) longest; top and bottom feathers slightly shorter
+        const tailLengths = [82, 98, 112, 126, 112, 98, 82];
+        for (let i = 0; i < TAIL_COUNT; i++) {
+            let idx = i - (TAIL_COUNT - 1) / 2; // -3 .. 3, 0 = center
+            let L = tailLengths[i];
+            let feather = new Node("TailFeather" + i);
+            feather.tx = -12;                      // attach just past the root wedge
+            feather.baseTy = idx * 4;               // vertical stack position (kept inside the body's silhouette)
+            feather.baseTz = Math.abs(idx) * 3.5;    // slight depth stagger so layers overlap naturally
+            feather.baseRz = -9 - Math.abs(idx) * 1.5; // gentle backward droop, a touch more on outer layers
+            feather.ty = feather.baseTy;
+            feather.tz = feather.baseTz;
+            feather.rz = feather.baseRz;
+            // Slight tint variation per feather: putih gading -> abu-abu terang
+            let tint = [
+                C_TAIL[0] - Math.abs(idx) * 5,
+                C_TAIL[1] - Math.abs(idx) * 5,
+                C_TAIL[2] - Math.abs(idx) * 3
+            ];
+            // Thick at the root, tapering gradually — tip stays a small natural point,
+            // never collapsing all the way to zero width/thickness.
+            buildFeather(feather, [
+                {x: 0,        width: 6,   thick: 8},   // tebal, menyatu dengan badan
+                {x: -L*0.25,  width: 6,   thick: 6.5},
+                {x: -L*0.55,  width: 5,   thick: 5},
+                {x: -L*0.8,   width: 3.5, thick: 3.5},
+                {x: -L,       width: 2,   thick: 2}    // ujung menipis, tetap natural (bukan titik tajam)
+            ], tint);
+            tailNode.children.push(feather);
+            tailFeathers.push({ node: feather, idx: idx });
+        }
+        bodyNode.children.push(tailNode);
+
+        // 5. Wings Construction
+        let feathersL = [], feathersR = [];
+        function createWingSet(isLeft) {
+            let sign = isLeft ? -1 : 1; // Left wing is -Z (towards viewer in this setup), Right wing is +Z
+            
+            let wingRoot = new Node(isLeft ? "WingL" : "WingR");
+            wingRoot.tx = 25; wingRoot.ty = -15; wingRoot.tz = 45 * sign;
+            if (!isLeft) wingRoot.sz = -1; // Mirror geometry for right wing
+
+            // Inner Wing
+            let inner = new Node("Inner");
+            buildWingPart(inner, [
+                {x: 0, z: 0, chord: 140, thick: 18},
+                {x: -20, z: 120 * sign, chord: 110, thick: 14},
+                {x: -40, z: 240 * sign, chord: 90, thick: 10}
+            ], C_WING);
+            wingRoot.children.push(inner);
+
+            // Outer Wing
+            let outer = new Node("Outer");
+            outer.tx = -40; outer.tz = 240 * sign;
+            buildWingPart(outer, [
+                {x: 0, z: 0, chord: 90, thick: 10},
+                {x: -20, z: 120 * sign, chord: 65, thick: 7},
+                {x: -45, z: 230 * sign, chord: 40, thick: 4}
+            ], C_WING);
+            inner.children.push(outer);
+
+            // Primary Feathers
+            let featherArr = isLeft ? feathersL : feathersR;
+            for (let i = 0; i < 4; i++) {
+                let f = new Node("Feather");
+                f.tx = -45 - (i * 12); 
+                f.tz = 230 * sign;
+                f.ry = -12 * i; // Spread fingers
+                buildWingPart(f, [
+                    {x: 0, z: 0, chord: 25, thick: 3},
+                    {x: -20, z: 80 * sign, chord: 15, thick: 1.5},
+                    {x: -50, z: 140 * sign, chord: 0, thick: 0}
+                ], C_FEATHER);
+                outer.children.push(f);
+                featherArr.push(f);
+            }
+
+            bodyNode.children.push(wingRoot);
+            return { inner, outer };
+        }
+
+        let wingL = createWingSet(true);
+        let wingR = createWingSet(false);
+
+        // --- ANIMATION CONTROLLER ---
+        let globalFlapTime = 0;
+        
+        function easeOut(t) { return 1 - Math.pow(1 - t, 3); }
+        function easeInOut(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+
+        function render(now) {
+            let t = now / 1000;
+            if (t > 8.0) t = 8.0;
+
+            let dt = 16.666; // Fixed timestep approx for smooth accumulation
+
+            let camX = 0, camY = 0, zoom = 1.0;
+            let flapSpeed = 0, flapAmp = 0;
+            let bodyBob = 0, glideLift = 0, bodyPitch = 0;
+
+            // Timeline Logic
+            if (t < 1.8) {
+                let p = t / 1.8;
+                camX = -1800 * (1 - easeOut(p)); // Fly in from left
+                flapSpeed = 9.5;
+                flapAmp = 1.0;
+                bodyBob = 1.0;
+                bodyPitch = -5; // slightly pitched up on enter
+            } else if (t < 3.5) {
+                flapSpeed = 7.5;
+                flapAmp = 1.0;
+                bodyBob = 1.0;
+                bodyPitch = 0;
+            } else if (t < 4.5) {
+                let p = (t - 3.5) / 1.0;
+                flapSpeed = 7.5 * (1 - p);
+                flapAmp = 1.0 * (1 - easeOut(p));
+                bodyBob = 1.0 * (1 - p);
+                glideLift = Math.sin(p * Math.PI) * 40; // Glide rise
+                bodyPitch = Math.sin(p * Math.PI) * 5;  // Slight pitch adjust in glide
+            } else {
+                flapSpeed = 0;
+                flapAmp = 0;
+                bodyBob = 0;
+                glideLift = 0;
+                let p = Math.min(1, (t - 4.5) / 2.5);
+                zoom = 1.0 + 0.16 * easeInOut(p); // Push in
+                camX = 250 * easeInOut(p); // Pan to chest/head
+                camY = 120 * easeInOut(p);
+                bodyPitch = 0;
+            }
+
+            globalFlapTime += (flapSpeed * dt / 1000);
+
+            // Kinematics
+            let flapAng = Math.sin(globalFlapTime);
+            let flapAngDel = Math.sin(globalFlapTime - 0.6);
+
+            // Wings
+            // Left wing is -Z. Rotation around X: positive angles move -Z down (+Y).
+            wingL.inner.rx = flapAng * 38 * flapAmp;
+            wingL.outer.rx = flapAngDel * 45 * flapAmp;
+            // Right wing is +Z, but scaled by sz=-1. Applying opposite rotation aligns the visual flap perfectly.
+            wingR.inner.rx = -wingL.inner.rx;
+            wingR.outer.rx = -wingL.outer.rx;
+
+            // Feathers
+            for (let i = 0; i < 4; i++) {
+                let fAng = Math.sin(globalFlapTime - 1.0 - i * 0.15) * 35 * flapAmp;
+                feathersL[i].rx = fAng;
+                feathersR[i].rx = -fAng;
+            }
+
+            // Body Secondary Motion
+            bodyNode.ty = Math.sin(globalFlapTime) * 25 * bodyBob - glideLift;
+            bodyNode.rz = Math.sin(globalFlapTime + 1.2) * 4 * bodyBob + bodyPitch;
+            tailNode.rz = Math.sin(globalFlapTime) * -3 * bodyBob; // small sway with the body, subtle only
+            headNode.rz = -bodyNode.rz * 0.8; // Head stabilization
+
+            // Tail feather layers: subtle secondary motion only — no fan opening/closing.
+            // Downstroke: layers ease apart slightly and dip down.
+            // Upstroke: layers draw slightly closer together and lift.
+            // Glide: settles back to the natural trailing position.
+            let tailPhase = flapAng * flapAmp; // ~0 in glide, oscillates while flapping
+            for (let tf of tailFeathers) {
+                tf.node.ty = tf.node.baseTy * (1 + 0.12 * tailPhase);
+                tf.node.rz = tf.node.baseRz - tailPhase * 3;
+            }
+
+            // Update Matrices
+            rootNode.update(new DOMMatrix());
+
+            // Collect & Sort Faces
+            let faces = [];
+            rootNode.collectFaces(faces);
+
+            // Projection & Depth sorting
+            let focalLength = 2200;
+            for (let f of faces) {
+                let cx = 0, cy = 0, cz = 0;
+                for (let v of f.verts) {
+                    cx += v.x; cy += v.y; cz += v.z;
+                }
+                f.depth = cz / 3; // Average Z
+                
+                // Normal Calculation for Lighting
+                let v0 = f.verts[0], v1 = f.verts[1], v2 = f.verts[2];
+                let ux = v1.x - v0.x, uy = v1.y - v0.y, uz = v1.z - v0.z;
+                let wx = v2.x - v0.x, wy = v2.y - v0.y, wz = v2.z - v0.z;
+                let nx = uy*wz - uz*wy, ny = uz*wx - ux*wz, nz = ux*wy - uy*wx;
+                let len = Math.hypot(nx, ny, nz);
+                if (len > 0) { nx/=len; ny/=len; nz/=len; }
+
+                // Light vector (Sun from Top-Front-Right)
+                let Lx = 0.5, Ly = -1.0, Lz = -0.6; 
+                let Llen = Math.hypot(Lx, Ly, Lz);
+                Lx/=Llen; Ly/=Llen; Lz/=Llen;
+
+                // Absolute dot product fixes winding inversion on right wing
+                let dot = Math.abs(nx*Lx + ny*Ly + nz*Lz); 
+                let ambient = 0.25;
+                let intensity = ambient + (1 - ambient) * dot;
+                
+                f.finalColor = `rgb(${Math.floor(f.baseColor[0]*intensity)}, ${Math.floor(f.baseColor[1]*intensity)}, ${Math.floor(f.baseColor[2]*intensity)})`;
+            }
+
+            // Sort by depth (painters algorithm) - Further objects have LARGER Z in this setup (wait, +Z is away)
+            faces.sort((a, b) => b.depth - a.depth);
+
+            // Clear Background (Sky Gradient)
+            let grad = ctx.createLinearGradient(0, 0, 0, H);
+            grad.addColorStop(0, '#87CEEB');
+            grad.addColorStop(1, '#E6F3FA');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, W, H);
+
+            // Render
+            ctx.lineJoin = 'round';
+            let globalScale = zoom * 1.5; // Base eagle scale
+            let centerX = W / 2 - camX * zoom;
+            let centerY = H / 2 - camY * zoom;
+
+            for (let f of faces) {
+                ctx.fillStyle = f.finalColor;
+                ctx.strokeStyle = f.finalColor;
+                ctx.lineWidth = 1.5; // Hides anti-aliasing seams
+
+                ctx.beginPath();
+                for (let i = 0; i < f.verts.length; i++) {
+                    let v = f.verts[i];
+                    // Perspective divide
+                    let pScale = focalLength / (focalLength + v.z);
+                    let px = v.x * pScale * globalScale + centerX;
+                    let py = v.y * pScale * globalScale + centerY;
+                    if (i === 0) ctx.moveTo(px, py);
+                    else ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+
+            if (t < 8.0) {
+                requestAnimationFrame(render);
+            }
+        }
+
+        // Start
+        requestAnimationFrame(render);
+    </script>
+</body>
+</html>

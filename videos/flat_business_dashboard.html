@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flat Design Motion Graphics: Stock Market</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: transparent; 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* Test Background to ensure visibility during preview. Remove for transparent render */
+        body { background-color: #0F172A; }
+
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; 
+            max-height: 56.25vw;
+            position: relative;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+
+        text {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <svg id="canvas" viewBox="0 0 3840 2160">
+        <g id="scene"></g>
+    </svg>
+</div>
+
+<script>
+    const svgLayer = document.getElementById('scene');
+    
+    // ==========================================
+    // 1. ENGINE & UTILITIES
+    // ==========================================
+    const DURATION = 5.0; 
+
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutCubic(t) { return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+
+    function createLine(x1, y1, x2, y2, color, strokeWidth) {
+        let el = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        el.setAttribute("x1", x1);
+        el.setAttribute("y1", y1);
+        el.setAttribute("x2", x2);
+        el.setAttribute("y2", y2);
+        el.setAttribute("stroke", color);
+        el.setAttribute("stroke-width", strokeWidth);
+        el.setAttribute("stroke-linecap", "round");
+        svgLayer.appendChild(el);
+        return el;
+    }
+
+    function createRect(color) {
+        let el = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+        el.setAttribute("fill", color);
+        svgLayer.appendChild(el);
+        return el;
+    }
+
+    function createText(color, fontSize, anchor) {
+        let el = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        el.setAttribute("fill", color);
+        el.setAttribute("font-size", fontSize);
+        el.setAttribute("text-anchor", anchor);
+        svgLayer.appendChild(el);
+        return el;
+    }
+
+    function createPath(color, strokeWidth) {
+        let el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        el.setAttribute("stroke", color);
+        el.setAttribute("stroke-width", strokeWidth);
+        el.setAttribute("fill", "none");
+        el.setAttribute("stroke-linecap", "round");
+        el.setAttribute("stroke-linejoin", "round");
+        svgLayer.appendChild(el);
+        return el;
+    }
+
+    // ==========================================
+    // 2. DESIGN SYSTEM / COLOR PALETTE
+    // ==========================================
+    const COLORS = {
+        grid: "rgba(255, 255, 255, 0.1)",
+        bullish: "#10B981", 
+        bearish: "#EF4444", 
+        textMain: "#FFFFFF",
+        textSub: "#94A3B8"
+    };
+
+    const LAYOUT = {
+        cx: 1920,
+        cy: 1080,
+        width: 2000,
+        chartHeight: 700,
+        volHeight: 250,
+        baseY: 1300,  
+        volBaseY: 1650 
+    };
+    LAYOUT.startX = LAYOUT.cx - (LAYOUT.width / 2);
+
+    // ==========================================
+    // 3. DATA STRUCTURE
+    // ==========================================
+    const candleStartT = 0.5; 
+    const candleEndT = 4.2;
+    const numCandles = 15;
+    const timeStep = (candleEndT - candleStartT) / numCandles;
+
+    const rawData = [
+        { o: 100, c: 150, h: 180, l: 80,  vol: 30 },  
+        { o: 150, c: 190, h: 210, l: 140, vol: 40 },  
+        { o: 190, c: 130, h: 200, l: 110, vol: 50 },  
+        { o: 130, c: 90,  h: 150, l: 80,  vol: 35 },  
+        { o: 90,  c: 160, h: 180, l: 70,  vol: 60 },  
+        { o: 160, c: 140, h: 170, l: 120, vol: 25 },  
+        { o: 140, c: 220, h: 250, l: 130, vol: 70 },  
+        { o: 220, c: 290, h: 320, l: 200, vol: 80 },  
+        { o: 290, c: 260, h: 310, l: 240, vol: 45 },  
+        { o: 260, c: 360, h: 390, l: 250, vol: 110 }, 
+        { o: 360, c: 450, h: 480, l: 340, vol: 130 }, 
+        { o: 450, c: 420, h: 470, l: 400, vol: 50 },  
+        { o: 420, c: 550, h: 580, l: 410, vol: 160 }, 
+        { o: 550, c: 620, h: 660, l: 530, vol: 180 }, 
+        { o: 620, c: 720, h: 780, l: 600, vol: 250 }  
+    ];
+
+    const candles = rawData.map((d, index) => {
+        let isBull = d.c >= d.o;
+        return {
+            x: LAYOUT.startX + (index * (LAYOUT.width / numCandles)) + 40,
+            yOpen: LAYOUT.baseY - d.o,
+            yClose: LAYOUT.baseY - d.c,
+            yHigh: LAYOUT.baseY - d.h,
+            yLow: LAYOUT.baseY - d.l,
+            isBull: isBull,
+            color: isBull ? COLORS.bullish : COLORS.bearish,
+            volHeight: d.vol,
+            startTime: candleStartT + (index * timeStep),
+            duration: 0.25 
+        };
+    });
+
+    // ==========================================
+    // 4. CREATE SVG ELEMENTS
+    // ==========================================
+    const gridLines = [];
+    for(let i=0; i<4; i++) {
+        let yPos = LAYOUT.baseY - (i * (LAYOUT.chartHeight / 3));
+        let line = createLine(LAYOUT.startX, yPos, LAYOUT.startX + LAYOUT.width, yPos, COLORS.grid, 4);
+        gridLines.push(line);
+    }
+    const baseGridLine = createLine(LAYOUT.startX, LAYOUT.baseY, LAYOUT.startX + LAYOUT.width, LAYOUT.baseY, COLORS.grid, 8);
+
+    candles.forEach(c => {
+        c.elWick = createLine(c.x, LAYOUT.baseY, c.x, LAYOUT.baseY, c.color, 6);
+        c.elBody = createRect(c.color);
+        c.elVol = createRect(c.color);
+    });
+
+    const arrowPath = createPath(COLORS.bullish, 16);
+    
+    // Teks Header
+    const titleText = createText(COLORS.textSub, 36, "start");
+    titleText.textContent = "MARKET MOVEMENT";
+    titleText.setAttribute("x", LAYOUT.startX);
+    titleText.setAttribute("y", LAYOUT.baseY - LAYOUT.chartHeight - 120);
+
+    // Teks Persentase (Dinaikkan agar aman dari candle terakhir)
+    const percText = createText(COLORS.bullish, 140, "end");
+    percText.setAttribute("x", LAYOUT.startX + LAYOUT.width);
+    percText.setAttribute("y", LAYOUT.baseY - LAYOUT.chartHeight - 120);
+    
+    // Label Volume
+    const volLabelText = createText(COLORS.textSub, 32, "start");
+    volLabelText.textContent = "Volume";
+    volLabelText.setAttribute("x", LAYOUT.startX);
+    volLabelText.setAttribute("y", LAYOUT.volBaseY + 60);
+
+    // ==========================================
+    // 5. ANIMATION LOOP
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let t = (timestamp - startTime) / 1000;
+        
+        if (t > DURATION) {
+            t = DURATION;
+        }
+
+        // --- 1. Grid Animation ---
+        let gridProgress = easeOutCubic(clamp(t / 0.5));
+        gridLines.forEach(line => {
+            let currentWidth = LAYOUT.startX + (LAYOUT.width * gridProgress);
+            line.setAttribute("x2", currentWidth);
+            line.setAttribute("opacity", gridProgress);
+        });
+        baseGridLine.setAttribute("x2", LAYOUT.startX + (LAYOUT.width * gridProgress));
+        baseGridLine.setAttribute("opacity", gridProgress);
+
+        titleText.setAttribute("opacity", gridProgress);
+        volLabelText.setAttribute("opacity", gridProgress);
+
+
+        // --- 2. Candlestick & Volume Build ---
+        candles.forEach(c => {
+            let buildP = easeOutCubic(clamp((t - c.startTime) / c.duration));
+            
+            if (buildP === 0) {
+                c.elBody.setAttribute("height", 0);
+                c.elWick.setAttribute("y1", c.yOpen);
+                c.elWick.setAttribute("y2", c.yOpen);
+                c.elVol.setAttribute("height", 0);
+                return;
+            }
+
+            let startY = c.yOpen;
+            let targetClose = c.yClose;
+            
+            let currentBodyY = startY + ((targetClose - startY) * buildP);
+            let bodyH = Math.abs(currentBodyY - startY);
+            let bodyY = Math.min(startY, currentBodyY); 
+
+            if (bodyH < 2) bodyH = 2;
+
+            c.elBody.setAttribute("x", c.x - 20);
+            c.elBody.setAttribute("y", bodyY);
+            c.elBody.setAttribute("width", 40);
+            c.elBody.setAttribute("height", bodyH);
+
+            let currentHigh = startY + ((c.yHigh - startY) * buildP);
+            let currentLow = startY + ((c.yLow - startY) * buildP);
+            c.elWick.setAttribute("y1", currentHigh);
+            c.elWick.setAttribute("y2", currentLow);
+
+            let volP = easeOutCubic(clamp((t - (c.startTime + 0.1)) / 0.2));
+            let vHeight = c.volHeight * volP;
+            c.elVol.setAttribute("x", c.x - 15);
+            c.elVol.setAttribute("y", LAYOUT.volBaseY - vHeight);
+            c.elVol.setAttribute("width", 30);
+            c.elVol.setAttribute("height", vHeight);
+        });
+
+
+        // --- 3. Percentage Counter ---
+        let percProgress = easeInOutCubic(clamp((t - 1.4) / 2.8));
+        let percValue = lerp(0.00, 8.42, percProgress);
+        
+        percText.textContent = `+${percValue.toFixed(2)}%`;
+        percText.setAttribute("opacity", clamp((t - 1.4) / 0.2));
+
+
+        // --- 4. Directional Arrow (DIPERBAIKI POSISINYA) ---
+        let arrowP = easeOutCubic(clamp((t - 2.3) / 1.5));
+        
+        if (arrowP > 0) {
+            // Posisi panah digeser jauh ke sebelah KIRI teks persentase
+            let ax = LAYOUT.startX + LAYOUT.width - 550;
+            let ay = LAYOUT.baseY - LAYOUT.chartHeight - 120;
+            
+            let aLen = 100 * arrowP;
+            let angle = lerp(0, -45, arrowP) * (Math.PI / 180);
+            
+            let endX = ax + (Math.cos(angle) * aLen);
+            let endY = ay + (Math.sin(angle) * aLen);
+
+            let headSize = 25 * clamp((arrowP - 0.5) / 0.5);
+            let headA1 = angle + (Math.PI * 0.8);
+            let headA2 = angle - (Math.PI * 0.8);
+            
+            let h1x = endX + (Math.cos(headA1) * headSize);
+            let h1y = endY + (Math.sin(headA1) * headSize);
+            
+            let h2x = endX + (Math.cos(headA2) * headSize);
+            let h2y = endY + (Math.sin(headA2) * headSize);
+
+            let d = `M ${ax} ${ay} L ${endX} ${endY}`;
+            if (headSize > 0) {
+                d += ` M ${h1x} ${h1y} L ${endX} ${endY} L ${h2x} ${h2y}`;
+            }
+            
+            arrowPath.setAttribute("d", d);
+            arrowPath.setAttribute("opacity", arrowP);
+        } else {
+            arrowPath.setAttribute("opacity", 0);
+        }
+
+
+        // --- 5. Final Emphasis ---
+        let emphasisP = easeInOutCubic(clamp((t - 4.2) / 0.5));
+        
+        if (emphasisP > 0) {
+            let scaleVal = 1 + (0.05 * emphasisP);
+            let tx = LAYOUT.startX + LAYOUT.width;
+            let ty = LAYOUT.baseY - LAYOUT.chartHeight - 120; // Sesuai dengan posisi Y teks yang baru
+            percText.setAttribute("transform", `translate(${tx}, ${ty}) scale(${scaleVal}) translate(${-tx}, ${-ty})`);
+            
+            let lastCandle = candles[numCandles - 1];
+            let cScale = 1 + (0.08 * emphasisP);
+            let cTx = lastCandle.x;
+            let cTy = lastCandle.yClose;
+            lastCandle.elBody.setAttribute("transform", `translate(${cTx}, ${cTy}) scale(1, ${cScale}) translate(${-cTx}, ${-cTy})`);
+        }
+
+        if (t < DURATION) {
+            requestAnimationFrame(render);
+        }
+    }
+
+    requestAnimationFrame(render);
+
+</script>
+</body>
+</html>

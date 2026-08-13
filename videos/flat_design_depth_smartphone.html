@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flat Design With Depth: Product Showcase</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #F2EFE8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* 16:9 Canvas Scale Wrapper */
+        #canvas-wrapper {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; 
+            max-height: 56.25vw;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #F2EFE8;
+            position: relative;
+        }
+
+        /* Fixed Stage for deterministic composition */
+        #stage {
+            width: 1920px;
+            height: 1080px;
+            transform: scale(min(calc(100vw / 1920), calc(100vh / 1080)));
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            perspective: 2500px;
+            transform-style: preserve-3d;
+        }
+
+        /* ==========================================
+           SMARTPHONE GEOMETRY
+           ========================================== */
+        .smartphone {
+            position: relative;
+            width: 380px;
+            height: 700px;
+            transform-style: preserve-3d;
+            will-change: transform;
+        }
+
+        .shadow-floor {
+            position: absolute;
+            width: 380px;
+            height: 700px;
+            background: rgba(48, 57, 68, 0.15);
+            border-radius: 45px;
+            transform: translateZ(-50px);
+            filter: blur(25px);
+            will-change: transform;
+        }
+
+        .phone-side-group {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            transform-style: preserve-3d;
+        }
+        .phone-side {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #202731;
+            border-radius: 45px;
+        }
+
+        .phone-body {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #303944;
+            border-radius: 45px;
+            transform: translateZ(0px);
+            padding: 15px;
+            transform-style: preserve-3d;
+        }
+
+        .phone-screen {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            background: #E8EDF0;
+            border-radius: 32px;
+            transform: translateZ(1px);
+            transform-style: preserve-3d;
+            display: flex;
+            flex-direction: column;
+            padding: 30px 20px;
+        }
+
+        .camera-notch {
+            position: absolute;
+            top: 25px;
+            left: 50%;
+            transform: translateX(-50%) translateZ(2px);
+            width: 90px;
+            height: 25px;
+            background: #202731;
+            border-radius: 12px;
+            z-index: 10;
+        }
+
+        /* Side Buttons */
+        .btn-side {
+            position: absolute;
+            background: #202731;
+            width: 6px;
+            border-radius: 3px 0 0 3px;
+        }
+        .btn-mute { top: 120px; left: -5px; height: 30px; }
+        .btn-vol1 { top: 170px; left: -5px; height: 50px; }
+        .btn-vol2 { top: 230px; left: -5px; height: 50px; }
+        .btn-power { top: 180px; right: -5px; height: 70px; border-radius: 0 3px 3px 0; }
+
+        /* ==========================================
+           SCREEN UI ELEMENTS (FLAT)
+           ========================================== */
+        .ui-element {
+            opacity: 0;
+            will-change: transform, opacity;
+        }
+
+        .ui-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            margin-bottom: 25px;
+        }
+        .ui-nav .menu-icon { width: 24px; height: 16px; border-top: 3px solid #20252B; border-bottom: 3px solid #20252B; position: relative; }
+        .ui-nav .menu-icon::after { content: ''; position: absolute; top: 4px; width: 16px; height: 3px; background: #20252B; }
+        .ui-nav .avatar { width: 36px; height: 36px; background: #FF6B4A; border-radius: 50%; }
+
+        .ui-main-card {
+            background: #FFFFFF;
+            border-radius: 20px;
+            padding: 24px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+            margin-bottom: 15px;
+        }
+        .ui-main-card .greeting { font-size: 14px; color: #303944; font-weight: 600; letter-spacing: 1px; margin-bottom: 8px; }
+        .ui-main-card .balance { font-size: 38px; color: #20252B; font-weight: 800; letter-spacing: -1px; }
+
+        /* ==========================================
+           HERO EXTRUDED LAYERS (POP OUT)
+           ========================================== */
+        .ext-layer {
+            opacity: 0;
+            transform-style: preserve-3d;
+            will-change: transform, opacity, box-shadow;
+        }
+
+        /* LAYER 1: Analytics Card (Line Chart) */
+        #ext-analytics {
+            width: 100%;
+            height: 140px;
+            background: #FFFFFF;
+            border-radius: 20px;
+            padding: 20px;
+            margin-bottom: 15px;
+            position: relative; /* Stays in layout flow inside the screen */
+        }
+        #ext-analytics svg { width: 100%; height: 100%; }
+
+        /* LAYER 2: Bar Chart Card */
+        #ext-barchart {
+            width: 100%;
+            height: 130px;
+            background: #FFFFFF;
+            border-radius: 20px;
+            padding: 20px 25px;
+            position: relative; /* Stays in layout flow */
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+        
+        .barchart-bar {
+            width: 24px;
+            border-radius: 6px;
+            transform-origin: bottom;
+            will-change: transform;
+        }
+        
+        /* Bar Heights and Colors */
+        .barchart-bar.c1 { background: #303944; height: 45px; }
+        .barchart-bar.c2 { background: #FF6B4A; height: 85px; }
+        .barchart-bar.c3 { background: #4F7CFF; height: 60px; }
+        .barchart-bar.c4 { background: #A1A9BC; height: 35px; }
+        .barchart-bar.c5 { background: #303944; height: 70px; }
+
+        /* LAYER 3: Notification (Floating badge) */
+        #ext-notification {
+            position: absolute;
+            top: 250px;
+            left: -30px;
+            background: #FFFFFF;
+            padding: 16px 24px;
+            border-radius: 30px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .notif-dot { width: 12px; height: 12px; background: #FF6B4A; border-radius: 50%; }
+        .notif-text { font-size: 14px; font-weight: 700; color: #20252B; }
+
+    </style>
+</head>
+<body>
+
+<div id="canvas-wrapper">
+    <div id="stage">
+        
+        <div class="smartphone" id="phoneNode">
+            <div class="shadow-floor" id="floorShadow"></div>
+            
+            <div class="phone-side-group" id="sideGroup"></div>
+            
+            <div class="phone-body">
+                <div class="btn-side btn-mute"></div>
+                <div class="btn-side btn-vol1"></div>
+                <div class="btn-side btn-vol2"></div>
+                <div class="btn-side btn-power"></div>
+                
+                <div class="camera-notch"></div>
+                
+                <div class="phone-screen">
+                    <div class="ui-element ui-nav" id="uiNav">
+                        <div class="menu-icon"></div>
+                        <div class="avatar"></div>
+                    </div>
+                    
+                    <div class="ui-element ui-main-card" id="uiCard">
+                        <div class="greeting">WELCOME</div>
+                        <div class="balance">$12,840</div>
+                    </div>
+
+                    <!-- Line Chart Card -->
+                    <div class="ext-layer" id="ext-analytics">
+                        <svg viewBox="0 0 300 100" preserveAspectRatio="none">
+                            <path id="chartLine" d="M 0 80 Q 40 80 70 40 T 150 20 T 230 60 T 300 10" 
+                                  fill="none" stroke="#FF6B4A" stroke-width="6" stroke-linecap="round" 
+                                  stroke-dasharray="400" stroke-dashoffset="400" />
+                            <circle id="chartDot" cx="300" cy="10" r="8" fill="#FF6B4A" opacity="0" />
+                        </svg>
+                    </div>
+                    
+                    <!-- Bar Chart Card -->
+                    <div class="ext-layer" id="ext-barchart">
+                        <div class="barchart-bar c1"></div>
+                        <div class="barchart-bar c2"></div>
+                        <div class="barchart-bar c3"></div>
+                        <div class="barchart-bar c4"></div>
+                        <div class="barchart-bar c5"></div>
+                    </div>
+
+                    <!-- Notification -->
+                    <div class="ext-layer" id="ext-notification">
+                        <div class="notif-dot"></div>
+                        <div class="notif-text">New Update</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ==========================================
+    // 1. ENGINE & SETUP
+    // ==========================================
+    const DURATION = 5.0; // 5-Second Loop
+    
+    const easings = {
+        linear: x => x,
+        easeOutCubic: x => 1 - Math.pow(1 - x, 3),
+        easeInCubic: x => x * x * x,
+        easeInOutSine: x => -(Math.cos(Math.PI * x) - 1) / 2
+    };
+
+    function evaluateTrack(track, t, defaultValue = 0) {
+        if (!track || track.length === 0) return defaultValue;
+        if (t <= track[0].t) return track[0].v;
+        if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+        for (let i = 0; i < track.length - 1; i++) {
+            if (t >= track[i].t && t < track[i + 1].t) {
+                const k1 = track[i], k2 = track[i + 1];
+                const p = (t - k1.t) / (k2.t - k1.t);
+                const ease = easings[k2.e || 'linear'];
+                return k1.v + (k2.v - k1.v) * ease(p);
+            }
+        }
+        return defaultValue;
+    }
+
+    // Generate Solid Flat Side
+    const sideGroup = document.getElementById('sideGroup');
+    for (let i = 1; i <= 15; i++) {
+        let s = document.createElement('div');
+        s.className = 'phone-side';
+        sideGroup.appendChild(s);
+    }
+    const sideLayers = document.querySelectorAll('.phone-side');
+
+    const phoneNode = document.getElementById('phoneNode');
+    const floorShadow = document.getElementById('floorShadow');
+    const uiNav = document.getElementById('uiNav');
+    const uiCard = document.getElementById('uiCard');
+    
+    const l1 = document.getElementById('ext-analytics');
+    const chartLine = document.getElementById('chartLine');
+    const chartDot = document.getElementById('chartDot');
+    
+    const l2 = document.getElementById('ext-barchart');
+    const bars = document.querySelectorAll('.barchart-bar');
+    
+    const l3 = document.getElementById('ext-notification');
+
+    // ==========================================
+    // 2. TIMELINE CHOREOGRAPHY
+    // ==========================================
+    const config = {
+        // Phone Rotation
+        rotY: [
+            {t: 0.0, v: 0}, {t: 0.8, v: 0}, 
+            {t: 1.5, v: -12, e: 'easeOutCubic'}, 
+            {t: 3.7, v: -12}, 
+            {t: 4.4, v: -10, e: 'easeInOutSine'},
+            {t: 4.8, v: -10}, {t: 5.0, v: 0, e: 'easeInCubic'} 
+        ],
+        sideDepth: [
+            {t: 0.0, v: 0}, {t: 0.8, v: 0}, 
+            {t: 1.5, v: 15, e: 'easeOutCubic'}, 
+            {t: 4.8, v: 15}, {t: 5.0, v: 0, e: 'easeInCubic'}
+        ],
+        
+        // UI Screen Sequential Fade In
+        uiNavOpa:    [{t: 1.5, v: 0}, {t: 1.7, v: 1, e: 'easeOutCubic'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}],
+        uiCardOpa:   [{t: 1.7, v: 0}, {t: 1.9, v: 1, e: 'easeOutCubic'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}],
+        
+        // --- PHASE 1: Cards Appear Flat on Screen ---
+        l1O: [{t: 1.9, v: 0}, {t: 2.1, v: 1, e: 'linear'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}],
+        l2O: [{t: 2.0, v: 0}, {t: 2.2, v: 1, e: 'linear'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}],
+        
+        // --- PHASE 2: Drawing Animations Inside Flat Cards ---
+        // Line Chart Animates
+        chartDraw: [{t: 2.1, v: 400}, {t: 2.5, v: 0, e: 'easeOutCubic'}, {t: 4.7, v: 0}, {t: 5.0, v: 400}],
+        chartDot:  [{t: 2.4, v: 0}, {t: 2.5, v: 1, e: 'easeOutCubic'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}],
+        // Bar Chart Animates (Grows upwards)
+        barScale:  [{t: 2.2, v: 0}, {t: 2.7, v: 1, e: 'easeOutCubic'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}],
+
+        // --- PHASE 3: Cards Extrude (Pop Out) from Screen ---
+        // Line Chart Card Extrusion
+        l1Z: [{t: 2.6, v: 2}, {t: 3.4, v: 100, e: 'easeOutCubic'}, {t: 4.5, v: 100}, {t: 5.0, v: 2, e: 'easeInOutSine'}],
+        l1Y: [{t: 2.6, v: 0}, {t: 3.4, v: -30, e: 'easeOutCubic'}, {t: 3.9, v: -30}, {t: 4.4, v: -35, e: 'easeInOutSine'}, {t: 5.0, v: 0}],
+        l1X: [{t: 2.6, v: 0}, {t: 3.4, v: -15, e: 'easeOutCubic'}, {t: 5.0, v: 0}],
+
+        // Bar Chart Card Extrusion (Slightly behind and to the right of line chart)
+        l2Z: [{t: 2.7, v: 2}, {t: 3.5, v: 75, e: 'easeOutCubic'}, {t: 4.5, v: 75}, {t: 5.0, v: 2, e: 'easeInOutSine'}],
+        l2Y: [{t: 2.7, v: 0}, {t: 3.5, v: -10, e: 'easeOutCubic'}, {t: 4.0, v: -10}, {t: 4.4, v: -15, e: 'easeInOutSine'}, {t: 5.0, v: 0}],
+        l2X: [{t: 2.7, v: 0}, {t: 3.5, v: 20, e: 'easeOutCubic'}, {t: 5.0, v: 0}],
+
+        // Notification Badge Extrusion (Front left)
+        l3Z: [{t: 2.8, v: 2}, {t: 3.6, v: 140, e: 'easeOutCubic'}, {t: 4.5, v: 140}, {t: 5.0, v: 2, e: 'easeInOutSine'}],
+        l3Y: [{t: 2.8, v: 0}, {t: 3.6, v: 20, e: 'easeOutCubic'}, {t: 4.4, v: 25, e: 'easeInOutSine'}, {t: 5.0, v: 0}],
+        l3X: [{t: 2.8, v: 0}, {t: 3.6, v: -40, e: 'easeOutCubic'}, {t: 5.0, v: 0}],
+        l3O: [{t: 2.7, v: 0}, {t: 2.9, v: 1, e: 'linear'}, {t: 4.8, v: 1}, {t: 5.0, v: 0}]
+    };
+
+    // ==========================================
+    // 3. RENDER LOOP
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let t = ((timestamp - startTime) / 1000) % DURATION;
+
+        // Base Phone Transformations
+        let rY = evaluateTrack(config.rotY, t);
+        let sD = evaluateTrack(config.sideDepth, t);
+        
+        phoneNode.style.transform = `rotateY(${rY}deg) rotateX(-2deg)`;
+        
+        sideLayers.forEach((layer, idx) => {
+            let zPos = -(idx / 14) * sD; 
+            layer.style.transform = `translateZ(${zPos}px)`;
+        });
+
+        floorShadow.style.transform = `translateZ(-50px) translateX(${rY * -2}px)`;
+
+        // UI Screen Sequential Fade In
+        uiNav.style.opacity = evaluateTrack(config.uiNavOpa, t);
+        uiNav.style.transform = `translateY(${10 * (1 - evaluateTrack(config.uiNavOpa, t))}px) translateZ(2px)`;
+        
+        uiCard.style.opacity = evaluateTrack(config.uiCardOpa, t);
+        uiCard.style.transform = `translateY(${10 * (1 - evaluateTrack(config.uiCardOpa, t))}px) translateZ(2px)`;
+        
+        // --- Inner Animations (Happens while flat) ---
+        // Line Chart Drawing
+        chartLine.style.strokeDashoffset = evaluateTrack(config.chartDraw, t);
+        chartDot.style.opacity = evaluateTrack(config.chartDot, t);
+
+        // Bar Chart Growth
+        let scaleY = evaluateTrack(config.barScale, t);
+        bars.forEach(bar => {
+            bar.style.transform = `scaleY(${scaleY})`;
+        });
+
+        // --- Extruded Layers (Pops out in 3D) ---
+        // Layer 1 (Line Chart)
+        let z1 = evaluateTrack(config.l1Z, t);
+        l1.style.opacity = evaluateTrack(config.l1O, t);
+        l1.style.transform = `translate3d(${evaluateTrack(config.l1X, t)}px, ${evaluateTrack(config.l1Y, t)}px, ${z1}px)`;
+        l1.style.boxShadow = `${-z1/4}px ${z1/4}px ${z1/2}px rgba(32, 37, 43, 0.08)`;
+
+        // Layer 2 (Bar Chart)
+        let z2 = evaluateTrack(config.l2Z, t);
+        l2.style.opacity = evaluateTrack(config.l2O, t);
+        l2.style.transform = `translate3d(${evaluateTrack(config.l2X, t)}px, ${evaluateTrack(config.l2Y, t)}px, ${z2}px)`;
+        l2.style.boxShadow = `${-z2/4}px ${z2/4}px ${z2/2}px rgba(32, 37, 43, 0.08)`;
+
+        // Layer 3 (Notification Badge)
+        let z3 = evaluateTrack(config.l3Z, t);
+        l3.style.opacity = evaluateTrack(config.l3O, t);
+        l3.style.transform = `translate3d(${evaluateTrack(config.l3X, t)}px, ${evaluateTrack(config.l3Y, t)}px, ${z3}px)`;
+        l3.style.boxShadow = `${-z3/4}px ${z3/4}px ${z3/2}px rgba(32, 37, 43, 0.1)`;
+
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

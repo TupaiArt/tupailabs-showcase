@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+    body {
+        margin: 0;
+        padding: 0;
+        background: #000;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+    }
+    #composition {
+        width: 3840px;
+        height: 2160px;
+        position: absolute;
+        transform-origin: top left;
+        background: #E8D6AE;
+        overflow: hidden;
+    }
+</style>
+</head>
+<body>
+
+<div id="composition">
+    <svg id="stage" width="3840" height="2160" viewBox="0 0 3840 2160">
+        <defs>
+            <filter id="paper-texture" x="0" y="0" width="100%" height="100%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.015" numOctaves="3" result="noise" />
+                <feColorMatrix type="matrix" values="1 0 0 0 0  0 0.9 0 0 0  0 0.7 0 0 0  0 0 0 0.04 0" in="noise" result="coloredNoise" />
+                <feBlend in="SourceGraphic" in2="coloredNoise" mode="multiply" />
+            </filter>
+            
+            <filter id="glow-blur" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="25" result="blur" />
+            </filter>
+
+            <clipPath id="mountain-clip">
+                <rect id="m-clip-rect" x="-300" y="200" width="600" height="0" />
+            </clipPath>
+
+            <mask id="path-mask">
+                <path id="mask-path" fill="none" stroke="#FFFFFF" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" />
+            </mask>
+        </defs>
+
+        <g id="map-container" filter="url(#paper-texture)" opacity="0">
+            <rect width="3840" height="2160" fill="#E8D6AE" />
+            
+            <!-- Decorative Border -->
+            <path d="M 100 120 Q 960 90, 1920 130 T 3740 100 Q 3710 1080, 3750 2060 Q 2880 2090, 1920 2050 T 110 2040 Q 80 1080, 100 120 Z" stroke="#3B3024" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+            <path d="M 120 140 Q 960 110, 1920 150 T 3720 120 Q 3690 1080, 3730 2040 Q 2880 2070, 1920 2030 T 130 2020 Q 100 1080, 120 140 Z" stroke="#3B3024" stroke-width="3" fill="none" opacity="0.5" />
+
+            <!-- Typography & Labels -->
+            <g font-family="Georgia, serif" font-size="36" font-weight="bold" fill="#3B3024" opacity="0.4" letter-spacing="6">
+                <text x="950" y="1250" text-anchor="middle">DARK FOREST</text>
+                <text x="1800" y="380" text-anchor="middle">HIGH PASS</text>
+                <text x="2700" y="1150" text-anchor="middle">BLUE RIVER</text>
+            </g>
+
+            <!-- Compass -->
+            <g transform="translate(3450, 350)" stroke="#3B3024" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="0" cy="0" r="100" stroke-width="4" />
+                <circle cx="0" cy="0" r="85" stroke-width="2" opacity="0.6" />
+                <path d="M 0 -130 L 0 130 M -130 0 L 130 0" stroke-width="4" />
+                <polygon points="-20,-25 0,-110 20,-25 0,-15" fill="#C44732" stroke="none" />
+                <polygon points="-20,25 0,110 20,25 0,15" fill="#3B3024" stroke="none" />
+                <text x="0" y="-150" font-family="Georgia, serif" font-size="45" font-weight="bold" fill="#3B3024" stroke="none" text-anchor="middle">N</text>
+                <text x="0" y="180" font-family="Georgia, serif" font-size="35" font-weight="bold" fill="#3B3024" stroke="none" text-anchor="middle">S</text>
+                <text x="160" y="15" font-family="Georgia, serif" font-size="35" font-weight="bold" fill="#3B3024" stroke="none" text-anchor="middle">E</text>
+                <text x="-160" y="15" font-family="Georgia, serif" font-size="35" font-weight="bold" fill="#3B3024" stroke="none" text-anchor="middle">W</text>
+            </g>
+
+            <!-- Water Elements -->
+            <g id="water-group">
+                <path d="M 2400 2160 Q 2550 1600, 2700 1400 T 2900 700 Q 2950 400, 2800 0" fill="none" stroke="#7197A0" stroke-width="120" opacity="0.3" stroke-linecap="round" />
+                <path id="water-line-1" d="M 2640 1200 Q 2670 1180, 2700 1200 T 2760 1200" fill="none" stroke="#7197A0" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+                <path id="water-line-2" d="M 2680 1550 Q 2710 1530, 2740 1550 T 2800 1550" fill="none" stroke="#7197A0" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+                <path id="water-line-3" d="M 2750 900 Q 2780 880, 2810 900 T 2870 900" fill="none" stroke="#7197A0" stroke-width="6" stroke-linecap="round" opacity="0.8" />
+            </g>
+
+            <!-- Landmarks (Midground) -->
+            <g id="jungle-group" transform="translate(1000, 1000)">
+                <!-- Back Trees (#315A4B - Muted/Smaller) -->
+                <!-- Tree B1 (Tall) -->
+                <g class="forest-tree" data-x="-140" data-y="-75" data-scale="0.65" data-rot="-3" opacity="0">
+                    <path class="base" d="M -45 10 Q -20 0 -5 12 Q 10 5 35 15 Q 10 25 -20 22 Z" fill="#315A4B" stroke="#315A4B" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -4 0 L -5 18 L 5 18 L 4 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 0 -90 Q -15 -70 -25 -70 Q -10 -70 -20 -50 Q -5 -50 -30 -25 Q -10 -25 -40 -5 Q -15 -10 0 -5 Q 15 -10 40 -5 Q 10 -25 30 -25 Q 5 -50 20 -50 Q 10 -70 25 -70 Q 15 -70 0 -90 Z" fill="#315A4B" stroke="#315A4B" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree B2 (Wide) -->
+                <g class="forest-tree" data-x="-50" data-y="-85" data-scale="0.75" data-rot="4" opacity="0">
+                    <path class="base" d="M -55 8 Q -30 -2 -10 10 Q 15 2 45 12 Q 15 22 -25 20 Z" fill="#315A4B" stroke="#315A4B" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -5 0 L -6 16 L 6 16 L 5 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 0 -70 Q -20 -50 -35 -50 Q -15 -50 -35 -25 Q -10 -25 -50 -5 Q -20 -10 0 -5 Q 20 -10 50 -5 Q 10 -25 35 -25 Q 15 -50 35 -50 Q 20 -50 0 -70 Z" fill="#315A4B" stroke="#315A4B" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree B3 (Asymmetric) -->
+                <g class="forest-tree" data-x="40" data-y="-70" data-scale="0.6" data-rot="-2" opacity="0">
+                    <path class="base" d="M -35 12 Q -15 2 5 15 Q 20 5 45 12 Q 15 25 -15 25 Z" fill="#315A4B" stroke="#315A4B" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -3 0 L -4 20 L 4 20 L 3 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 10 -80 Q -15 -60 -25 -60 Q -5 -60 -25 -30 Q 0 -30 -30 -5 Q -10 -10 5 -5 Q 25 -10 45 -10 Q 15 -30 35 -30 Q 5 -60 25 -60 Q 15 -60 10 -80 Z" fill="#315A4B" stroke="#315A4B" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree B4 (Tall) -->
+                <g class="forest-tree" data-x="130" data-y="-65" data-scale="0.65" data-rot="5" opacity="0">
+                    <path class="base" d="M -45 10 Q -20 0 -5 12 Q 10 5 35 15 Q 10 25 -20 22 Z" fill="#315A4B" stroke="#315A4B" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -4 0 L -5 18 L 5 18 L 4 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 0 -90 Q -15 -70 -25 -70 Q -10 -70 -20 -50 Q -5 -50 -30 -25 Q -10 -25 -40 -5 Q -15 -10 0 -5 Q 15 -10 40 -5 Q 10 -25 30 -25 Q 5 -50 20 -50 Q 10 -70 25 -70 Q 15 -70 0 -90 Z" fill="#315A4B" stroke="#315A4B" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+
+                <!-- Front Trees (#29483F - Darker/Larger) -->
+                <!-- Tree F1 (Asymmetric) -->
+                <g class="forest-tree" data-x="-170" data-y="5" data-scale="0.85" data-rot="2" opacity="0">
+                    <path class="base" d="M -35 12 Q -15 2 5 15 Q 20 5 45 12 Q 15 25 -15 25 Z" fill="#29483F" stroke="#29483F" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -3 0 L -4 20 L 4 20 L 3 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 10 -80 Q -15 -60 -25 -60 Q -5 -60 -25 -30 Q 0 -30 -30 -5 Q -10 -10 5 -5 Q 25 -10 45 -10 Q 15 -30 35 -30 Q 5 -60 25 -60 Q 15 -60 10 -80 Z" fill="#29483F" stroke="#29483F" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree F2 (Tall) -->
+                <g class="forest-tree" data-x="-80" data-y="25" data-scale="1.05" data-rot="-4" opacity="0">
+                    <path class="base" d="M -45 10 Q -20 0 -5 12 Q 10 5 35 15 Q 10 25 -20 22 Z" fill="#29483F" stroke="#29483F" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -4 0 L -5 18 L 5 18 L 4 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 0 -90 Q -15 -70 -25 -70 Q -10 -70 -20 -50 Q -5 -50 -30 -25 Q -10 -25 -40 -5 Q -15 -10 0 -5 Q 15 -10 40 -5 Q 10 -25 30 -25 Q 5 -50 20 -50 Q 10 -70 25 -70 Q 15 -70 0 -90 Z" fill="#29483F" stroke="#29483F" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree F3 (Asymmetric) -->
+                <g class="forest-tree" data-x="10" data-y="40" data-scale="0.95" data-rot="0" opacity="0">
+                    <path class="base" d="M -35 12 Q -15 2 5 15 Q 20 5 45 12 Q 15 25 -15 25 Z" fill="#29483F" stroke="#29483F" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -3 0 L -4 20 L 4 20 L 3 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 10 -80 Q -15 -60 -25 -60 Q -5 -60 -25 -30 Q 0 -30 -30 -5 Q -10 -10 5 -5 Q 25 -10 45 -10 Q 15 -30 35 -30 Q 5 -60 25 -60 Q 15 -60 10 -80 Z" fill="#29483F" stroke="#29483F" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree F4 (Wide) -->
+                <g class="forest-tree" data-x="100" data-y="20" data-scale="1.1" data-rot="3" opacity="0">
+                    <path class="base" d="M -55 8 Q -30 -2 -10 10 Q 15 2 45 12 Q 15 22 -25 20 Z" fill="#29483F" stroke="#29483F" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -5 0 L -6 16 L 6 16 L 5 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 0 -70 Q -20 -50 -35 -50 Q -15 -50 -35 -25 Q -10 -25 -50 -5 Q -20 -10 0 -5 Q 20 -10 50 -5 Q 10 -25 35 -25 Q 15 -50 35 -50 Q 20 -50 0 -70 Z" fill="#29483F" stroke="#29483F" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+                <!-- Tree F5 (Tall) -->
+                <g class="forest-tree" data-x="180" data-y="-5" data-scale="0.8" data-rot="-3" opacity="0">
+                    <path class="base" d="M -45 10 Q -20 0 -5 12 Q 10 5 35 15 Q 10 25 -20 22 Z" fill="#29483F" stroke="#29483F" stroke-width="6" stroke-linejoin="round" />
+                    <path class="trunk" d="M -4 0 L -5 18 L 5 18 L 4 0 Z" fill="#3B3024" />
+                    <path class="crown" d="M 0 -90 Q -15 -70 -25 -70 Q -10 -70 -20 -50 Q -5 -50 -30 -25 Q -10 -25 -40 -5 Q -15 -10 0 -5 Q 15 -10 40 -5 Q 10 -25 30 -25 Q 5 -50 20 -50 Q 10 -70 25 -70 Q 15 -70 0 -90 Z" fill="#29483F" stroke="#29483F" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+                </g>
+            </g>
+
+            <g id="mountain-group" transform="translate(1800, 600)" clip-path="url(#mountain-clip)">
+                <!-- Left Peak -->
+                <polygon points="-180,150 -80,-50 20,150" fill="#E8D6AE" stroke="#6A6250" stroke-width="10" stroke-linejoin="round" />
+                <path d="M -130,50 L -80,0 L -30,50" fill="none" stroke="#6A6250" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Right Peak -->
+                <polygon points="-20,150 100,-80 220,150" fill="#E8D6AE" stroke="#6A6250" stroke-width="10" stroke-linejoin="round" />
+                <path d="M 40,30 L 100,-20 L 160,30" fill="none" stroke="#6A6250" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Center Main Peak -->
+                <polygon points="-120,150 20,-180 160,150" fill="#E8D6AE" stroke="#6A6250" stroke-width="12" stroke-linejoin="round" />
+                <path d="M -50,-10 L 20,-80 L 90,-10" fill="none" stroke="#6A6250" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" />
+                <!-- Base lines -->
+                <path d="M -220,150 L 260,150" stroke="#6A6250" stroke-width="10" stroke-linecap="round" />
+            </g>
+
+            <g id="bridge-group" transform="translate(2700, 1400) scale(0)">
+                <rect x="-70" y="-120" width="140" height="240" fill="#E8D6AE" stroke="#3B3024" stroke-width="12" rx="10" />
+                <path d="M -70,-80 L 70,-80 M -70,-40 L 70,-40 M -70,0 L 70,0 M -70,40 L 70,40 M -70,80 L 70,80" stroke="#3B3024" stroke-width="8" stroke-linecap="round" />
+                <!-- Ropes -->
+                <path d="M -90,-140 Q -110,0, -90,140 M 90,-140 Q 110,0, 90,140" fill="none" stroke="#3B3024" stroke-width="10" stroke-linecap="round" />
+                <circle cx="-90" cy="-140" r="12" fill="#3B3024" />
+                <circle cx="90" cy="-140" r="12" fill="#3B3024" />
+                <circle cx="-90" cy="140" r="12" fill="#3B3024" />
+                <circle cx="90" cy="140" r="12" fill="#3B3024" />
+            </g>
+
+            <!-- Route Path -->
+            <path id="route-path" d="M 400 400 C 550 350, 700 850, 1000 1000 C 1300 1150, 1450 650, 1800 600 C 2150 550, 2300 1300, 2700 1400 C 3050 1500, 3150 1700, 3400 1800" fill="none" stroke="#C44732" stroke-width="14" stroke-dasharray="20 24" stroke-linecap="round" stroke-linejoin="round" mask="url(#path-mask)" />
+
+            <!-- START Marker -->
+            <g id="start-group" transform="translate(400, 400)">
+                <circle id="start-pulse" cx="0" cy="0" r="25" fill="none" stroke="#C44732" stroke-width="8" />
+                <circle cx="0" cy="0" r="30" fill="#E8D6AE" stroke="#C44732" stroke-width="10" />
+                <circle cx="0" cy="0" r="12" fill="#C44732" />
+                <text x="-70" y="-50" font-family="Georgia, serif" font-size="45" font-weight="bold" fill="#3B3024">START</text>
+            </g>
+
+            <!-- TREASURE Destination -->
+            <g id="treasure-group" transform="translate(3400, 1800)">
+                <g id="treasure-x" transform="scale(0)">
+                    <path d="M -45 -45 L 45 45 M -45 45 L 45 -45" stroke="#C44732" stroke-width="22" stroke-linecap="round" />
+                </g>
+                <g id="chest-group" transform="translate(70, 0) scale(0)">
+                    <!-- Golden Glow -->
+                    <circle id="chest-glow" cx="0" cy="-20" r="10" fill="#D49A2A" filter="url(#glow-blur)" opacity="0" />
+                    
+                    <!-- Chest Base -->
+                    <path d="M -50 0 L 50 0 L 45 60 L -45 60 Z" fill="#E8D6AE" stroke="#3B3024" stroke-width="10" stroke-linejoin="round" />
+                    <!-- Locks/Bands -->
+                    <path d="M -25 0 L -22 60 M 25 0 L 22 60 M -10 25 L 10 25 L 10 40 L -10 40 Z" fill="#E8D6AE" stroke="#3B3024" stroke-width="8" stroke-linejoin="round" />
+                    
+                    <!-- Chest Lid -->
+                    <g id="chest-lid" transform="translate(0, 0)">
+                        <path d="M -55 0 C -55 -45, 55 -45, 55 0 Z" fill="#E8D6AE" stroke="#3B3024" stroke-width="10" stroke-linejoin="round" />
+                        <path d="M -27 0 C -27 -30, -23 -35, -23 -35 M 27 0 C 27 -30, 23 -35, 23 -35" fill="none" stroke="#3B3024" stroke-width="8" stroke-linecap="round" />
+                    </g>
+                </g>
+                <text id="treasure-label" x="0" y="140" text-anchor="middle" font-family="Georgia, serif" font-size="50" font-weight="bold" fill="#D49A2A" opacity="0">TREASURE FOUND</text>
+            </g>
+
+            <!-- Explorer Marker -->
+            <g id="explorer" opacity="0">
+                <circle cx="0" cy="0" r="16" fill="#E8D6AE" stroke="#3B3024" stroke-width="6" />
+                <polygon points="12,-12 35,0 12,12 18,0" fill="#C44732" stroke="#3B3024" stroke-width="4" stroke-linejoin="round" />
+            </g>
+        </g>
+    </svg>
+</div>
+
+<script>
+    // Config
+    const DURATION = 5.0; 
+    let startTime = null;
+
+    // Elements
+    const route = document.getElementById('route-path');
+    const maskPath = document.getElementById('mask-path');
+    const mapContainer = document.getElementById('map-container');
+    const startPulse = document.getElementById('start-pulse');
+    const explorer = document.getElementById('explorer');
+    const mClipRect = document.getElementById('m-clip-rect');
+    const bridgeGroup = document.getElementById('bridge-group');
+    const waterLines = [
+        document.getElementById('water-line-1'),
+        document.getElementById('water-line-2'),
+        document.getElementById('water-line-3')
+    ];
+    const treasureX = document.getElementById('treasure-x');
+    const chestGroup = document.getElementById('chest-group');
+    const chestLid = document.getElementById('chest-lid');
+    const chestGlow = document.getElementById('chest-glow');
+    const treasureLabel = document.getElementById('treasure-label');
+
+    // Init Path Mask
+    const pathData = route.getAttribute('d');
+    maskPath.setAttribute('d', pathData);
+    const totalLength = route.getTotalLength();
+    maskPath.style.strokeDasharray = totalLength;
+    maskPath.style.strokeDashoffset = totalLength;
+
+    // Init Jungle Trees from statically defined HTML
+    const treeElements = document.querySelectorAll('.forest-tree');
+    const trees = Array.from(treeElements).map((el) => {
+        const x = parseFloat(el.getAttribute('data-x'));
+        const y = parseFloat(el.getAttribute('data-y'));
+        const scale = parseFloat(el.getAttribute('data-scale'));
+        const rot = parseFloat(el.getAttribute('data-rot'));
+        return { el, x, y, scale, rot };
+    });
+
+    // Easing Functions
+    const easeInOutSine = x => -(Math.cos(Math.PI * x) - 1) / 2;
+    const easeOutBack = x => {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2);
+    };
+    const easeOutQuad = x => 1 - (1 - x) * (1 - x);
+    const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+    const lerp = (start, end, t) => start + (end - start) * t;
+
+    // Main Render Loop
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        const t = (timestamp - startTime) / 1000;
+
+        // 1. Map Reveal (0.0 - 0.6s)
+        const mapProgress = clamp(t / 0.6, 0, 1);
+        mapContainer.setAttribute('opacity', easeOutQuad(mapProgress));
+        
+        const pulseProgress = clamp(t / 0.6, 0, 1);
+        const pulseScale = lerp(1, 1.8, easeOutQuad(pulseProgress));
+        const pulseOpacity = lerp(1, 0, easeOutQuad(pulseProgress));
+        startPulse.setAttribute('transform', `scale(${pulseScale})`);
+        startPulse.setAttribute('opacity', pulseOpacity);
+
+        // 2. Path & Explorer Movement (0.6 - 4.0s)
+        const pathT = clamp((t - 0.6) / 3.4, 0, 1);
+        const pathEased = easeInOutSine(pathT);
+        const currentLength = totalLength * pathEased;
+        
+        maskPath.style.strokeDashoffset = totalLength - currentLength;
+
+        if (t > 0.6 && t <= 4.5) {
+            explorer.setAttribute('opacity', '1');
+            const pt = route.getPointAtLength(currentLength);
+            
+            // Calculate Tangent
+            const ptNext = route.getPointAtLength(Math.min(currentLength + 2, totalLength));
+            const ptPrev = route.getPointAtLength(Math.max(currentLength - 2, 0));
+            const dx = ptNext.x - ptPrev.x;
+            const dy = ptNext.y - ptPrev.y;
+            const angle = Math.atan2(dy, dx) * 180 / Math.PI;
+
+            explorer.setAttribute('transform', `translate(${pt.x}, ${pt.y}) rotate(${angle})`);
+        } else if (t > 4.5) {
+            explorer.setAttribute('opacity', '0');
+        }
+
+        // 3. Jungle Reveal (1.4 - 2.2s)
+        if (t > 1.4) {
+            const jungleT = clamp((t - 1.4) / 0.8, 0, 1);
+            trees.forEach((tree, i) => {
+                // Adjust delay to stagger all 9 trees within the 0.8s window
+                const delayT = clamp((jungleT - i * 0.07) / 0.4, 0, 1);
+                const eased = easeOutBack(delayT);
+                const currentScale = lerp(0.8, tree.scale, eased);
+                const currentY = lerp(tree.y + 40, tree.y, easeOutQuad(delayT));
+                tree.el.setAttribute('transform', `translate(${tree.x}, ${currentY}) scale(${currentScale}) rotate(${tree.rot})`);
+                tree.el.setAttribute('opacity', clamp(delayT * 5, 0, 1));
+            });
+        }
+
+        // 4. Mountain Reveal (2.2 - 3.0s)
+        if (t > 2.2) {
+            const mountainT = clamp((t - 2.2) / 0.8, 0, 1);
+            const easedM = easeInOutSine(mountainT);
+            const h = lerp(0, 450, easedM);
+            const y = lerp(200, -250, easedM);
+            mClipRect.setAttribute('y', y);
+            mClipRect.setAttribute('height', h);
+        }
+
+        // 5. Bridge & River Reveal (3.0 - 3.7s)
+        if (t > 2.8) {
+            // Subtle water animation continuous after 2.8
+            const waveOffset = Math.sin(t * 3) * 15;
+            waterLines.forEach((line, i) => {
+                line.setAttribute('transform', `translate(${waveOffset * (i%2===0?1:-1)}, 0)`);
+            });
+        }
+        if (t > 3.0) {
+            const bridgeT = clamp((t - 3.0) / 0.7, 0, 1);
+            const scaleB = lerp(0, 1, easeOutBack(bridgeT));
+            bridgeGroup.setAttribute('transform', `translate(2700, 1400) scale(${scaleB})`);
+        }
+
+        // 6. Treasure X Reveal (3.7 - 4.5s)
+        if (t > 3.7) {
+            const xT = clamp((t - 3.7) / 0.8, 0, 1);
+            let scaleX = 0;
+            if (xT < 0.4) {
+                scaleX = lerp(0, 1.2, easeOutQuad(xT / 0.4));
+            } else {
+                scaleX = lerp(1.2, 1.0, easeOutQuad((xT - 0.4) / 0.6));
+            }
+            
+            // X Shift at 4.5
+            let shiftX = 0;
+            if (t > 4.5) {
+                const shiftT = clamp((t - 4.5) / 0.4, 0, 1);
+                shiftX = lerp(0, -70, easeInOutSine(shiftT));
+            }
+            
+            treasureX.setAttribute('transform', `translate(${shiftX}, 0) scale(${scaleX})`);
+        }
+
+        // 7. Chest & Glow Reveal (4.5 - 5.0s)
+        if (t > 4.5) {
+            const chestT = clamp((t - 4.5) / 0.5, 0, 1);
+            
+            // Chest Pop
+            const chestScale = lerp(0, 1, easeOutBack(clamp(chestT / 0.6, 0, 1)));
+            chestGroup.setAttribute('transform', `translate(70, 0) scale(${chestScale})`);
+            
+            // Lid Open
+            const lidT = clamp((chestT - 0.4) / 0.6, 0, 1);
+            const lidAngle = lerp(0, -60, easeOutBack(lidT));
+            chestLid.setAttribute('transform', `rotate(${lidAngle})`);
+            
+            // Glow
+            const glowR = lerp(10, 70, easeOutQuad(lidT));
+            const glowO = lerp(0, 0.9, easeOutQuad(lidT));
+            chestGlow.setAttribute('r', glowR);
+            chestGlow.setAttribute('opacity', glowO);
+            
+            // Label
+            const labelT = clamp((t - 4.6) / 0.4, 0, 1);
+            const labelY = lerp(180, 140, easeOutQuad(labelT));
+            treasureLabel.setAttribute('y', labelY);
+            treasureLabel.setAttribute('opacity', easeOutQuad(labelT));
+        }
+
+        if (t <= 5.5) {
+            requestAnimationFrame(render);
+        }
+    }
+
+    requestAnimationFrame(render);
+</script>
+
+</body>
+</html>

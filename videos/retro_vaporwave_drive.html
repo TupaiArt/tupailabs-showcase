@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Retro Vaporwave - Neon Sunset Drive</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #080315; /* Outer background */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Arial Black', Impact, sans-serif;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            /* Vaporwave Sky Gradient */
+            background: linear-gradient(to bottom, #170D3B 0%, #5A2CA0 30%, #10162F 45%, #0A0D1C 100%);
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * Z-INDEX HIERARCHY & LAYERS
+         */
+        .layer {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Elements mapping to JS logic */
+        .track-el {
+            position: absolute;
+            will-change: transform, opacity;
+        }
+
+        /* LAYER 1: STARS */
+        #stars-container {
+            z-index: 10;
+            opacity: 0;
+        }
+        .star {
+            position: absolute;
+            background-color: #25D9E8;
+            border-radius: 50%;
+            box-shadow: 0 0 10px #25D9E8;
+        }
+
+        /* LAYER 2: SUN */
+        #sun-container {
+            z-index: 20;
+            left: 50%;
+            top: 45%; /* Horizon is 45% (972px) */
+            transform: translate(-50%, -50%);
+            width: 900px;
+            height: 900px;
+        }
+        #sun {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: linear-gradient(to bottom, #FF9D45 10%, #F052A0 90%);
+            box-shadow: 0 0 150px rgba(240, 82, 160, 0.4);
+            position: relative;
+            overflow: hidden;
+        }
+        /* Retro cut lines in the sun */
+        .sun-stripe {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            background-color: #10162F; /* Matches horizon sky color */
+        }
+        .stripe-1 { top: 65%; height: 12px; }
+        .stripe-2 { top: 72%; height: 20px; }
+        .stripe-3 { top: 80%; height: 32px; }
+        .stripe-4 { top: 89%; height: 48px; }
+
+        /* LAYER 3: HORIZON HAZE */
+        #horizon-haze {
+            z-index: 25;
+            top: 872px; /* Centered around 972px */
+            height: 200px;
+            background: linear-gradient(to bottom, transparent, rgba(37, 217, 232, 0.4), transparent);
+            opacity: 0;
+        }
+
+        /* LAYER 4: GRID & ROAD */
+        #grid-container {
+            z-index: 30;
+            top: 972px;
+            height: 1188px;
+            opacity: 0;
+        }
+        .grid-line-v {
+            position: absolute;
+            top: 0;
+            height: 1188px;
+            width: 4px;
+            background: linear-gradient(to bottom, transparent, rgba(37, 217, 232, 0.6) 20%, #25D9E8);
+            transform-origin: top center;
+            box-shadow: 0 0 15px #25D9E8;
+        }
+        .grid-line-h {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background-color: #25D9E8;
+            box-shadow: 0 0 15px #25D9E8;
+        }
+        
+        #road {
+            z-index: 35;
+            top: 972px;
+            height: 1188px;
+        }
+        #road-poly {
+            fill: #0A0D1C;
+        }
+
+        #lane-markings {
+            z-index: 36;
+            top: 972px;
+            height: 1188px;
+        }
+        .lane-mark {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 100px;
+            background-color: #FF3FA4;
+            box-shadow: 0 0 20px #FF3FA4;
+        }
+
+        /* LAYER 5: PALM TREES */
+        #palms-container {
+            z-index: 40;
+        }
+        .palm {
+            position: absolute;
+            transform-origin: bottom center;
+            will-change: transform;
+        }
+        .palm svg {
+            fill: #0A0D1C; /* Dark navy silhouette */
+        }
+
+        /* LAYER 6: CAR & HEADLIGHTS */
+        #car-container {
+            z-index: 50;
+            left: 50%;
+            top: 1750px;
+            transform: translate(-50%, -50%);
+            width: 1000px;
+            height: 400px; /* Increased height for better proportions */
+        }
+        
+        #car-reflection {
+            position: absolute;
+            bottom: 20px;
+            left: 15%;
+            width: 70%;
+            height: 40px;
+            background-color: rgba(255, 63, 164, 0.5);
+            border-radius: 50%;
+            filter: blur(25px);
+        }
+
+        #headlights {
+            position: absolute;
+            top: 200px;
+            left: -1500px;
+            width: 4000px;
+            height: 800px;
+            opacity: 0; /* Animated */
+            z-index: 45; /* Below car body, above road */
+        }
+        
+        /* LAYER 7: TYPOGRAPHY */
+        #typo-top {
+            z-index: 100;
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 140px;
+            color: transparent;
+            background: linear-gradient(to bottom, #25D9E8, #FF3FA4);
+            -webkit-background-clip: text;
+            background-clip: text; /* Added standard property */
+            letter-spacing: 50px;
+            margin-right: -50px;
+            opacity: 0;
+            filter: drop-shadow(0 0 30px rgba(255, 63, 164, 0.8));
+        }
+
+        #typo-bot {
+            z-index: 100;
+            bottom: 120px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 45px;
+            color: #FF9D45;
+            letter-spacing: 30px;
+            margin-right: -30px;
+            opacity: 0;
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        
+        <!-- STARS -->
+        <div id="stars-container" class="layer track-el"></div>
+
+        <!-- SUN -->
+        <div id="sun-container" class="track-el">
+            <div id="sun">
+                <div class="sun-stripe stripe-1"></div>
+                <div class="sun-stripe stripe-2"></div>
+                <div class="sun-stripe stripe-3"></div>
+                <div class="sun-stripe stripe-4"></div>
+            </div>
+        </div>
+
+        <!-- HORIZON HAZE -->
+        <div id="horizon-haze" class="layer track-el"></div>
+
+        <!-- ROAD BACKGROUND -->
+        <div id="road" class="layer">
+            <svg width="3840" height="1188" viewBox="0 0 3840 1188">
+                <!-- Vanishing point is 1920, 0 in local coords (972 global) -->
+                <polygon id="road-poly" points="1720,0 2120,0 3200,1188 640,1188" />
+            </svg>
+        </div>
+
+        <!-- GRID -->
+        <div id="grid-container" class="layer track-el">
+            <!-- Vertical Lines (generated via JS for perspective projection) -->
+            <div id="grid-v"></div>
+            <!-- Horizontal Lines (animated via JS) -->
+            <div id="grid-h"></div>
+        </div>
+
+        <!-- LANE MARKINGS -->
+        <div id="lane-markings" class="layer"></div>
+
+        <!-- PALM TREES -->
+        <div id="palms-container" class="layer">
+            <div class="palm track-el" id="palm-left-bg" style="left: 1000px; top: 750px; transform: scale(0.6);">
+                <svg width="400" height="600" viewBox="0 0 400 600">
+                    <path d="M190,600 Q200,300 230,150 L210,150 Q180,300 170,600 Z"/>
+                    <path d="M220,150 Q350,100 380,250 Q300,180 220,150 Z"/>
+                    <path d="M220,150 Q300,50 350,80 Q280,100 220,150 Z"/>
+                    <path d="M220,150 Q200,0 220,-20 Q230,50 220,150 Z"/>
+                    <path d="M220,150 Q100,50 50,120 Q150,120 220,150 Z"/>
+                    <path d="M220,150 Q50,150 20,280 Q120,200 220,150 Z"/>
+                </svg>
+            </div>
+            
+            <div class="palm track-el" id="palm-right-fg" style="left: 2600px; top: 600px; transform: scale(1.5);">
+                <svg width="400" height="600" viewBox="0 0 400 600">
+                    <path d="M210,600 Q190,300 170,150 L190,150 Q210,300 230,600 Z"/>
+                    <path d="M180,150 Q50,100 20,250 Q100,180 180,150 Z"/>
+                    <path d="M180,150 Q100,50 50,80 Q120,100 180,150 Z"/>
+                    <path d="M180,150 Q200,0 180,-20 Q170,50 180,150 Z"/>
+                    <path d="M180,150 Q300,50 350,120 Q250,120 180,150 Z"/>
+                    <path d="M180,150 Q350,150 380,280 Q280,200 180,150 Z"/>
+                </svg>
+            </div>
+            
+            <div class="palm track-el" id="palm-left-fg" style="left: 200px; top: 300px; transform: scale(3.5);">
+                <svg width="400" height="600" viewBox="0 0 400 600">
+                    <path d="M190,600 Q200,300 230,150 L210,150 Q180,300 170,600 Z"/>
+                    <path d="M220,150 Q350,100 380,250 Q300,180 220,150 Z"/>
+                    <path d="M220,150 Q300,50 350,80 Q280,100 220,150 Z"/>
+                    <path d="M220,150 Q200,0 220,-20 Q230,50 220,150 Z"/>
+                    <path d="M220,150 Q100,50 50,120 Q150,120 220,150 Z"/>
+                    <path d="M220,150 Q50,150 20,280 Q120,200 220,150 Z"/>
+                </svg>
+            </div>
+        </div>
+
+        <!-- CAR HEADLIGHT BEAMS -->
+        <div id="headlights" class="track-el">
+            <svg width="4000" height="800" viewBox="0 0 4000 800">
+                <defs>
+                    <linearGradient id="beamGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stop-color="rgba(37, 217, 232, 0.4)"/>
+                        <stop offset="100%" stop-color="rgba(37, 217, 232, 0.0)"/>
+                    </linearGradient>
+                </defs>
+                <polygon points="1820,0 1500,800 500,800" fill="url(#beamGrad)" />
+                <polygon points="2180,0 2500,800 3500,800" fill="url(#beamGrad)" />
+            </svg>
+        </div>
+
+        <!-- RETRO CAR (REDESIGNED FOR MORE MUSCLE/VOLUME) -->
+        <div id="car-container" class="track-el">
+            <div id="car-reflection"></div>
+            
+            <svg width="1000" height="400" viewBox="0 0 1000 400">
+                <!-- Underglow (Tucked closer to the new body height) -->
+                <polygon points="170,340 830,340 780,370 220,370" fill="#FF3FA4" opacity="0.6" filter="blur(15px)"/>
+                
+                <!-- Tires (Wider and taller for a muscular stance) -->
+                <rect x="180" y="295" width="140" height="85" rx="20" fill="#05070D"/>
+                <rect x="680" y="295" width="140" height="85" rx="20" fill="#05070D"/>
+                <!-- Tire Treads / Highlights -->
+                <rect x="190" y="300" width="120" height="15" rx="5" fill="#10162F"/>
+                <rect x="690" y="300" width="120" height="15" rx="5" fill="#10162F"/>
+
+                <!-- Lower Bumper / Diffuser -->
+                <polygon points="120,250 880,250 920,330 80,330" fill="#170D3B"/>
+                <polygon points="120,315 880,315 920,330 80,330" fill="#0A0D1C"/> <!-- bottom lip -->
+
+                <!-- Mid Body (Tail lights panel) -->
+                <polygon points="140,210 860,210 880,250 120,250" fill="#5A2CA0"/>
+                
+                <!-- Upper Body (Engine deck & Shoulders) -->
+                <polygon points="220,160 780,160 860,210 140,210" fill="#25D9E8" opacity="0.15"/>
+                <polygon points="220,160 780,160 860,210 140,210" fill="none" stroke="#25D9E8" stroke-width="2"/>
+
+                <!-- Cabin -->
+                <polygon points="320,60 680,60 780,160 220,160" fill="#0A0D1C"/>
+                
+                <!-- 80s Louvers (Horizontal Slats on rear window) -->
+                <polygon points="325,75 675,75 690,95 310,95" fill="#10162F"/>
+                <polygon points="300,105 700,105 725,125 275,125" fill="#10162F"/>
+                <polygon points="265,135 735,135 760,155 240,155" fill="#10162F"/>
+                
+                <!-- Neon Window Trim -->
+                <polygon points="320,60 680,60 780,160 220,160" fill="none" stroke="#FF3FA4" stroke-width="4" opacity="0.8"/>
+
+                <!-- Tail Lights (Thick, glowing blocks) -->
+                <!-- Left -->
+                <rect x="150" y="220" width="220" height="22" rx="4" fill="#FF9D45"/>
+                <rect x="150" y="220" width="220" height="22" rx="4" fill="#FF3FA4" filter="blur(12px)" opacity="0.9"/>
+                <!-- Right -->
+                <rect x="630" y="220" width="220" height="22" rx="4" fill="#FF9D45"/>
+                <rect x="630" y="220" width="220" height="22" rx="4" fill="#FF3FA4" filter="blur(12px)" opacity="0.9"/>
+
+                <!-- License Plate (Customized) -->
+                <rect x="420" y="265" width="160" height="45" rx="5" fill="#05070D"/>
+                <rect x="430" y="270" width="140" height="35" rx="3" fill="#25D9E8" opacity="0.2"/>
+                <text x="500" y="296" font-family="monospace" font-size="24" fill="#25D9E8" text-anchor="middle" font-weight="bold" letter-spacing="4">TUPAI</text>
+
+                <!-- Double Exhausts -->
+                <!-- Left Exhaust -->
+                <rect x="250" y="305" width="60" height="25" rx="10" fill="#10162F"/>
+                <rect x="260" y="310" width="15" height="15" rx="7.5" fill="#FF9D45" opacity="0.8"/>
+                <rect x="285" y="310" width="15" height="15" rx="7.5" fill="#FF9D45" opacity="0.8"/>
+                <!-- Right Exhaust -->
+                <rect x="690" y="305" width="60" height="25" rx="10" fill="#10162F"/>
+                <rect x="700" y="310" width="15" height="15" rx="7.5" fill="#FF9D45" opacity="0.8"/>
+                <rect x="725" y="310" width="15" height="15" rx="7.5" fill="#FF9D45" opacity="0.8"/>
+
+                <!-- Giant 80s Spoiler -->
+                <!-- Struts -->
+                <polygon points="250,160 275,160 295,80 265,80" fill="#170D3B"/>
+                <polygon points="750,160 725,160 705,80 735,80" fill="#170D3B"/>
+                <!-- Blade -->
+                <polygon points="50,80 950,80 920,60 80,60" fill="#FF3FA4"/>
+                <polygon points="50,80 950,80 940,95 60,95" fill="#5A2CA0"/>
+            </svg>
+        </div>
+
+        <!-- TYPOGRAPHY -->
+        <div id="typo-top" class="track-el">NEON DRIVE</div>
+        <div id="typo-bot" class="track-el">1987 / AFTER MIDNIGHT</div>
+
+    </div>
+
+    <script>
+        /**
+         * INITIALIZATION: Grid and Stars
+         */
+        const gridV = document.getElementById('grid-v');
+        const gridH = document.getElementById('grid-h');
+        const laneContainer = document.getElementById('lane-markings');
+        const starsContainer = document.getElementById('stars-container');
+
+        // Setup Stars
+        for (let i = 0; i < 60; i++) {
+            let star = document.createElement('div');
+            star.className = 'star';
+            let size = Math.random() * 4 + 2;
+            star.style.width = size + 'px';
+            star.style.height = size + 'px';
+            star.style.left = Math.random() * 3840 + 'px';
+            star.style.top = Math.random() * 950 + 'px'; // Above horizon
+            star.style.opacity = Math.random() * 0.5 + 0.3;
+            starsContainer.appendChild(star);
+        }
+
+        // Perspective Math Variables
+        const VP_X = 1920;
+        const VP_Y = 0; // Local to container (container top is at horizon 972)
+        const H_DIST = 1188; // Distance from horizon to bottom of canvas
+
+        // Setup Vertical Grid Lines (Radiating from VP)
+        const vLinesCount = 30;
+        for (let i = -vLinesCount; i <= vLinesCount; i++) {
+            if (i === 0) continue; // Skip center line
+            let line = document.createElement('div');
+            line.className = 'grid-line-v';
+            line.style.left = '1920px';
+            // Calculate angle: spacing increases away from center
+            let targetXBottom = 1920 + (i * 150) * (Math.abs(i)/10 + 1); 
+            let angle = Math.atan2(targetXBottom - 1920, 1188) * (180 / Math.PI);
+            line.style.transform = `rotate(${angle}deg)`;
+            gridV.appendChild(line);
+        }
+
+        // Arrays for dynamic elements
+        const hLinesCount = 18;
+        const hLines = [];
+        for (let i = 0; i < hLinesCount; i++) {
+            let line = document.createElement('div');
+            line.className = 'grid-line-h';
+            gridH.appendChild(line);
+            hLines.push(line);
+        }
+
+        const lanesCount = 6;
+        const lanes = [];
+        for (let i = 0; i < lanesCount; i++) {
+            let mark = document.createElement('div');
+            mark.className = 'lane-mark';
+            laneContainer.appendChild(mark);
+            lanes.push(mark);
+        }
+
+
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            linear: x => x,
+            outExpo: x => x === 1 ? 1 : 1 - Math.pow(2, -10 * x),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+            outQuart: x => 1 - Math.pow(1 - x, 4),
+            inCubic: x => x * x * x
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS
+         */
+        const config = [
+            // SUN (Reveal 0.0 - 0.8)
+            {
+                id: 'sun-container',
+                tracks: {
+                    y: [ {t:0,v:250}, {t:0.8,v:0,e:'outQuart'} ],
+                    scale: [ {t:0,v:0.7}, {t:0.8,v:1,e:'outQuart'} ]
+                }
+            },
+            // HORIZON HAZE (Fade in with Sun)
+            {
+                id: 'horizon-haze',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:0.8,v:1,e:'outQuart'} ]
+                }
+            },
+            // GRID & ROAD CONTAINER (World Reveal 0.8 - 1.5)
+            {
+                id: 'grid-container',
+                tracks: { opacity: [ {t:0,v:0}, {t:0.8,v:0}, {t:1.5,v:1,e:'outExpo'} ] }
+            },
+            // CAR (Entry 1.5 - 2.3, Drive Scale 2.3 - 5.0)
+            {
+                id: 'car-container',
+                tracks: {
+                    x: [ {t:0,v:-350}, {t:1.5,v:-350}, {t:2.3,v:0,e:'outQuart'} ],
+                    y: [ {t:0,v:100}, {t:1.5,v:100}, {t:2.3,v:0,e:'outQuart'} ],
+                    rot: [ {t:0,v:-3}, {t:1.5,v:-3}, {t:2.3,v:0,e:'outQuart'} ],
+                    scale: [ {t:0,v:0.85}, {t:1.5,v:0.85}, {t:2.3,v:1.0,e:'outQuart'}, {t:5.0,v:1.04,e:'linear'} ]
+                }
+            },
+            // HEADLIGHTS (Neon Boost 3.5 - 4.3)
+            {
+                id: 'headlights',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:3.5,v:0}, {t:4.0,v:1,e:'outExpo'} ]
+                }
+            },
+            // STARS (Neon Boost 3.5 - 4.3)
+            {
+                id: 'stars-container',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:3.5,v:0}, {t:4.3,v:1,e:'outExpo'} ]
+                }
+            },
+            // PALM TREES (World reveal to Drive Parallax)
+            {
+                id: 'palm-left-bg',
+                tracks: {
+                    x: [ {t:0,v:-300}, {t:0.8,v:-300}, {t:1.5,v:0,e:'outExpo'}, {t:5.0,v:-200,e:'linear'} ]
+                }
+            },
+            {
+                id: 'palm-right-fg',
+                tracks: {
+                    x: [ {t:0,v:500}, {t:0.8,v:500}, {t:1.5,v:0,e:'outExpo'}, {t:5.0,v:400,e:'linear'} ]
+                }
+            },
+            {
+                id: 'palm-left-fg',
+                tracks: {
+                    x: [ {t:0,v:-800}, {t:0.8,v:-800}, {t:1.5,v:0,e:'outExpo'}, {t:5.0,v:-800,e:'inCubic'} ]
+                }
+            },
+            // TYPOGRAPHY (Hero Frame 4.3 - 5.0)
+            {
+                id: 'typo-top',
+                tracks: {
+                    y: [ {t:0,v:50}, {t:4.3,v:50}, {t:5.0,v:0,e:'outExpo'} ],
+                    opacity: [ {t:0,v:0}, {t:4.3,v:0}, {t:5.0,v:1,e:'outExpo'} ]
+                }
+            },
+            {
+                id: 'typo-bot',
+                tracks: {
+                    y: [ {t:0,v:-30}, {t:4.3,v:-30}, {t:5.0,v:0,e:'outExpo'} ],
+                    opacity: [ {t:0,v:0}, {t:4.3,v:0}, {t:5.0,v:1,e:'outExpo'} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let t = (timestamp - startTime) / 1000;
+
+            // 1. Process Evaluator Tracks
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                let x = evaluateTrack(conf.tracks.x, t, 0);
+                let y = evaluateTrack(conf.tracks.y, t, 0);
+                let scale = evaluateTrack(conf.tracks.scale, t, 1);
+                let rot = evaluateTrack(conf.tracks.rot, t, 0);
+                
+                // Specific alignment corrections
+                if (el.id === 'sun-container' || el.id === 'car-container' || el.id === 'typo-top' || el.id === 'typo-bot') {
+                    el.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px) rotate(${rot}deg) scale(${scale})`;
+                } else {
+                    el.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg) scale(${scale})`;
+                }
+                
+                if (conf.tracks.opacity !== undefined) {
+                    el.style.opacity = evaluateTrack(conf.tracks.opacity, t, 1);
+                }
+            });
+
+            // 2. Process Parallax 2D Projection for Drive (0.8s to 5.0s)
+            let speed = 0.8; // Cycles per second
+            let driveTime = Math.max(0, t - 0.8);
+            let offset = (driveTime * speed) % 1;
+
+            // Horizontal Grid Lines
+            for (let i = 0; i < hLinesCount; i++) {
+                let z = ((i / hLinesCount) + offset) % 1; 
+                let yPos = H_DIST * Math.pow(z, 3);
+                
+                let line = hLines[i];
+                line.style.top = yPos + 'px';
+                line.style.opacity = (z < 0.05) ? (z / 0.05) : (z > 0.9) ? (1 - (z - 0.9)/0.1) : 1;
+            }
+
+            // Lane Markings
+            for (let i = 0; i < lanesCount; i++) {
+                let z = ((i / lanesCount) + offset) % 1;
+                let yPos = H_DIST * Math.pow(z, 3);
+                let scaleY = Math.pow(z, 2) * 5 + 0.1; 
+                let scaleX = Math.pow(z, 1.5) * 2 + 0.2; 
+
+                let mark = lanes[i];
+                mark.style.top = yPos + 'px';
+                mark.style.transform = `translateX(-50%) scale(${scaleX}, ${scaleY})`;
+                
+                let baseOpacity = (z < 0.1) ? (z / 0.1) : (z > 0.85) ? (1 - (z - 0.85)/0.15) : 1;
+                let brightnessMulti = t > 3.5 ? 1.5 : 0.8; 
+                
+                if (t < 0.8) baseOpacity = 0; 
+                mark.style.opacity = Math.min(1, baseOpacity * brightnessMulti);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

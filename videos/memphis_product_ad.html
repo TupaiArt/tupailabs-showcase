@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>BOOMBOX 1986 - 80s Product Advertisement</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Arial Black', Impact, sans-serif;
+            text-transform: uppercase;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #EBF4F6; /* Soft Pastel Background */
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * PALETTE & STROKES
+         */
+        .stroke-bold {
+            stroke: #111111;
+            stroke-width: 16;
+            stroke-linejoin: round;
+        }
+        .stroke-thick {
+            stroke: #111111;
+            stroke-width: 24;
+            stroke-linejoin: round;
+        }
+        .fill-hotpink { fill: #FF2A7A; }
+        .fill-cyan { fill: #00E5FF; }
+        .fill-yellow { fill: #FFD700; }
+        .fill-purple { fill: #7000FF; }
+        .fill-black { fill: #111111; }
+        .fill-white { fill: #FFFFFF; }
+
+        .solid-shadow {
+            filter: drop-shadow(25px 25px 0px #111111);
+        }
+
+        .track-el {
+            position: absolute;
+            will-change: transform, opacity;
+            transform-origin: center center;
+        }
+
+        /* 
+         * TYPOGRAPHY
+         */
+        #title-container {
+            z-index: 100;
+            left: 150px;
+            top: 150px;
+            transform-origin: left top;
+        }
+
+        #title-boombox {
+            font-size: 320px;
+            line-height: 0.8;
+            color: #FF2A7A;
+            text-shadow: 25px 25px 0px #111111, 0 0 0 #111;
+            -webkit-text-stroke: 12px #111111;
+            letter-spacing: -15px;
+            margin-bottom: 20px;
+            transform: rotate(-4deg);
+        }
+
+        #title-1986 {
+            font-size: 200px;
+            line-height: 0.8;
+            color: #00E5FF;
+            text-shadow: 20px 20px 0px #111111;
+            -webkit-text-stroke: 10px #111111;
+            letter-spacing: -5px;
+            margin-left: 50px;
+            transform: rotate(-2deg);
+        }
+
+        /* 
+         * BACKGROUND DECORATIONS
+         */
+        #bg-container {
+            z-index: 10;
+            width: 100%;
+            height: 100%;
+            top: 0; left: 0;
+        }
+
+        /* 
+         * HERO BOOMBOX
+         */
+        #boombox-wrapper {
+            z-index: 50;
+            left: 50%;
+            top: 50%;
+            width: 1800px;
+            height: 1200px;
+            margin-left: -700px; /* Offset slightly right since origin is center */
+            margin-top: -500px;
+        }
+
+        #boombox-svg {
+            width: 100%;
+            height: 100%;
+            overflow: visible;
+        }
+
+        .speaker-cone {
+            transform-origin: center center;
+            will-change: transform;
+        }
+
+        /* 
+         * STICKERS
+         */
+        .sticker {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            border: 12px solid #111111;
+            box-shadow: 20px 20px 0px #111111;
+            z-index: 80;
+        }
+
+        #sticker-new {
+            width: 350px;
+            height: 350px;
+            background-color: #FFD700;
+            border-radius: 50%;
+            font-size: 100px;
+            color: #111111;
+            left: 3100px;
+            top: 400px;
+            margin-left: -175px;
+            margin-top: -175px;
+            letter-spacing: -5px;
+        }
+
+        #sticker-sound {
+            width: 600px;
+            height: 180px;
+            background-color: #7000FF;
+            border-radius: 90px;
+            font-size: 70px;
+            color: #FFFFFF;
+            left: 700px;
+            top: 1800px;
+            margin-left: -300px;
+            margin-top: -90px;
+            letter-spacing: 2px;
+            padding: 0 40px;
+        }
+
+        /* 
+         * STARBURST
+         */
+        #starburst-bg {
+            z-index: 40;
+            left: 50%;
+            top: 50%;
+            width: 2200px;
+            height: 2200px;
+            margin-left: -900px;
+            margin-top: -1100px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        
+        <!-- BACKGROUND DECORATIONS -->
+        <div id="bg-container" class="track-el">
+            <svg width="3840" height="2160">
+                <!-- Geometric Accents -->
+                <polygon points="400,1200 600,1000 700,1300" fill="#FFD700" class="stroke-bold solid-shadow" transform="rotate(15 500 1150)"/>
+                <circle cx="3300" cy="1500" r="150" fill="#FF2A7A" class="stroke-bold solid-shadow"/>
+                <rect x="3500" y="800" width="200" height="200" fill="#00E5FF" class="stroke-bold solid-shadow" transform="rotate(45 3600 900)"/>
+
+                <!-- Squiggles -->
+                <path id="squig1" d="M 200 800 Q 300 700 400 800 T 600 800 T 800 800" fill="none" stroke="#7000FF" stroke-width="40" stroke-linecap="round" class="solid-shadow"/>
+                <path id="squig2" d="M 2800 300 Q 2900 200 3000 300 T 3200 300 T 3400 300 T 3600 300" fill="none" stroke="#FF2A7A" stroke-width="40" stroke-linecap="round" class="solid-shadow"/>
+            </svg>
+        </div>
+
+        <!-- STARBURST (Behind Boombox) -->
+        <div id="starburst-bg" class="track-el">
+            <svg width="2200" height="2200" viewBox="0 0 2200 2200" id="starburst-svg">
+                <!-- Generated via JS -->
+            </svg>
+        </div>
+
+        <!-- TYPOGRAPHY -->
+        <div id="title-container" class="track-el">
+            <div id="title-boombox">BOOMBOX</div>
+            <div id="title-1986">1986</div>
+        </div>
+
+        <!-- HERO PRODUCT: BOOMBOX -->
+        <div id="boombox-wrapper" class="track-el">
+            <svg id="boombox-svg" viewBox="0 0 1800 1200">
+                <defs>
+                    <clipPath id="body-clip">
+                        <rect x="150" y="350" width="1500" height="750" rx="60"/>
+                    </clipPath>
+                </defs>
+                
+                <!-- Antenna -->
+                <line x1="400" y1="350" x2="100" y2="50" stroke="#FFFFFF" stroke-width="25" stroke-linecap="round" class="solid-shadow"/>
+                <line x1="400" y1="350" x2="100" y2="50" stroke="#111111" stroke-width="25" stroke-dasharray="25 40" stroke-linecap="round"/>
+
+                <!-- Handle Shadow -->
+                <rect x="375" y="125" width="1050" height="250" rx="100" fill="#111111"/>
+                <!-- Handle -->
+                <rect x="350" y="100" width="1050" height="250" rx="100" fill="none" class="stroke-thick"/>
+                <!-- Handle Grip -->
+                <rect x="700" y="70" width="400" height="60" rx="20" class="fill-hotpink stroke-bold"/>
+
+                <!-- Main Body Shadow -->
+                <rect x="180" y="380" width="1500" height="750" rx="60" fill="#111111"/>
+                <!-- Main Body Base -->
+                <rect x="150" y="350" width="1500" height="750" rx="60" class="fill-yellow stroke-thick"/>
+                
+                <!-- Top Control Panel Strip -->
+                <rect x="150" y="350" width="1500" height="150" rx="60" class="fill-cyan stroke-thick"/>
+                <rect x="150" y="420" width="1500" height="80" class="fill-cyan"/> <!-- Connect bottom edge -->
+                <line x1="150" y1="500" x2="1650" y2="500" class="stroke-thick"/>
+
+                <!-- Top Buttons / Knobs -->
+                <rect x="300" y="310" width="60" height="40" rx="10" class="fill-hotpink stroke-bold"/>
+                <rect x="390" y="310" width="60" height="40" rx="10" class="fill-hotpink stroke-bold"/>
+                <rect x="480" y="310" width="60" height="40" rx="10" class="fill-hotpink stroke-bold"/>
+                <circle cx="1300" cy="320" r="40" class="fill-purple stroke-bold"/>
+                <circle cx="1450" cy="320" r="40" class="fill-purple stroke-bold"/>
+
+                <!-- Center Panel Background -->
+                <rect x="650" y="550" width="500" height="500" rx="30" class="fill-purple stroke-thick"/>
+                
+                <!-- Cassette Deck -->
+                <rect x="700" y="600" width="400" height="220" rx="20" class="fill-black stroke-bold"/>
+                <rect x="750" y="640" width="300" height="120" rx="15" class="fill-white"/>
+                <circle cx="820" cy="700" r="35" class="fill-black"/>
+                <circle cx="820" cy="700" r="10" class="fill-white"/>
+                <circle cx="980" cy="700" r="35" class="fill-black"/>
+                <circle cx="980" cy="700" r="10" class="fill-white"/>
+                <line x1="820" y1="700" x2="980" y2="700" stroke="#111" stroke-width="8"/>
+                
+                <!-- EQ Sliders -->
+                <rect x="720" y="880" width="20" height="120" class="fill-black"/>
+                <rect x="700" y="900" width="60" height="30" rx="10" class="fill-yellow stroke-bold"/>
+                
+                <rect x="800" y="880" width="20" height="120" class="fill-black"/>
+                <rect x="780" y="950" width="60" height="30" rx="10" class="fill-yellow stroke-bold"/>
+                
+                <rect x="880" y="880" width="20" height="120" class="fill-black"/>
+                <rect x="860" y="920" width="60" height="30" rx="10" class="fill-yellow stroke-bold"/>
+
+                <rect x="960" y="880" width="20" height="120" class="fill-black"/>
+                <rect x="940" y="890" width="60" height="30" rx="10" class="fill-yellow stroke-bold"/>
+
+                <circle cx="1060" cy="940" r="50" class="fill-cyan stroke-bold"/>
+                <circle cx="1060" cy="940" r="15" class="fill-black"/>
+
+                <!-- LEFT SPEAKER -->
+                <g transform="translate(420, 800)">
+                    <circle cx="0" cy="0" r="230" class="fill-black"/>
+                    <circle cx="0" cy="0" r="210" class="fill-white stroke-thick"/>
+                    <g class="speaker-cone" id="spk-l">
+                        <circle cx="0" cy="0" r="150" class="fill-cyan stroke-thick"/>
+                        <circle cx="0" cy="0" r="70" class="fill-hotpink stroke-thick"/>
+                        <circle cx="0" cy="0" r="30" class="fill-black"/>
+                    </g>
+                    <!-- Speaker Grille Cross -->
+                    <line x1="-210" y1="0" x2="210" y2="0" class="stroke-thick"/>
+                    <line x1="0" y1="-210" x2="0" y2="210" class="stroke-thick"/>
+                </g>
+
+                <!-- RIGHT SPEAKER -->
+                <g transform="translate(1380, 800)">
+                    <circle cx="0" cy="0" r="230" class="fill-black"/>
+                    <circle cx="0" cy="0" r="210" class="fill-white stroke-thick"/>
+                    <g class="speaker-cone" id="spk-r">
+                        <circle cx="0" cy="0" r="150" class="fill-cyan stroke-thick"/>
+                        <circle cx="0" cy="0" r="70" class="fill-hotpink stroke-thick"/>
+                        <circle cx="0" cy="0" r="30" class="fill-black"/>
+                    </g>
+                    <!-- Speaker Grille Cross -->
+                    <line x1="-210" y1="0" x2="210" y2="0" class="stroke-thick"/>
+                    <line x1="0" y1="-210" x2="0" y2="210" class="stroke-thick"/>
+                </g>
+
+                <!-- TWEETERS -->
+                <circle cx="280" cy="580" r="60" class="fill-black"/>
+                <circle cx="280" cy="580" r="30" class="fill-white stroke-bold"/>
+                <circle cx="1520" cy="580" r="60" class="fill-black"/>
+                <circle cx="1520" cy="580" r="30" class="fill-white stroke-bold"/>
+
+                <!-- PRODUCT HIGHLIGHT (Animated sweep) -->
+                <g clip-path="url(#body-clip)">
+                    <polygon id="hl-sweep" points="-400,0 -100,0 -200,1200 -500,1200" fill="#FFFFFF" opacity="0.4" />
+                </g>
+
+            </svg>
+        </div>
+
+        <!-- STICKERS -->
+        <div id="sticker-new" class="track-el sticker">NEW!</div>
+        <div id="sticker-sound" class="track-el sticker">PURE 80s SOUND</div>
+
+    </div>
+
+    <script>
+        /**
+         * INITIALIZATION
+         */
+        
+        // Generate Starburst
+        const starSvg = document.getElementById('starburst-svg');
+        let starPoints = "";
+        let cx = 1100, cy = 1100;
+        let rays = 24;
+        for (let i = 0; i < rays * 2; i++) {
+            let angle = (i * Math.PI) / rays;
+            let radius = (i % 2 === 0) ? 1000 : 700 + (Math.random() * 200 - 100); // Irregular inner
+            let x = cx + Math.cos(angle) * radius;
+            let y = cy + Math.sin(angle) * radius;
+            starPoints += `${x},${y} `;
+        }
+        let starPoly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        starPoly.setAttribute('points', starPoints.trim());
+        starPoly.setAttribute('fill', '#00E5FF'); // Cyan burst
+        starPoly.setAttribute('stroke', '#111111');
+        starPoly.setAttribute('stroke-width', '24');
+        starPoly.setAttribute('stroke-linejoin', 'round');
+        starSvg.appendChild(starPoly);
+
+
+        /**
+         * ANIMATION ENGINE
+         */
+        const easings = {
+            linear: x => x,
+            outCubic: x => 1 - Math.pow(1 - x, 3),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+            outBack: x => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); },
+            inOutBack: x => { const c1 = 1.70158; const c2 = c1 * 1.525; return x < 0.5 ? (Math.pow(2 * x, 2) * ((c2 + 1) * 2 * x - c2)) / 2 : (Math.pow(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2; }
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS (10s Loop)
+         * 0.0-1.0 : Assembly
+         * 1.0-2.0 : Product Reveal
+         * 2.0-5.5 : Showcase
+         * 5.5-7.0 : Accent
+         * 7.0-9.0 : Hold
+         * 9.0-10.0: Reset
+         */
+        const config = [
+            // --- ASSEMBLY ---
+            {
+                id: 'bg-container',
+                tracks: { opacity: [ {t:0,v:0}, {t:0.5,v:1,e:'linear'}, {t:9.5,v:1}, {t:10.0,v:0,e:'linear'} ] }
+            },
+            {
+                id: 'starburst-bg',
+                tracks: { 
+                    opacity: [ {t:0,v:0}, {t:0.6,v:1,e:'linear'}, {t:9.4,v:1}, {t:10.0,v:0,e:'linear'} ],
+                    scale: [ {t:0,v:0}, {t:0.8,v:1,e:'outBack'}, {t:9.2,v:1}, {t:10.0,v:0,e:'inOutCubic'} ],
+                    rot: [ {t:0,v:0}, {t:10.0,v:15,e:'linear'} ] // Slow constant rotation
+                }
+            },
+            {
+                id: 'title-container',
+                tracks: { 
+                    opacity: [ {t:0,v:0}, {t:0.4,v:1}, {t:9.6,v:1}, {t:10.0,v:0} ],
+                    y: [ {t:0,v:-300}, {t:0.8,v:0,e:'outBack'}, {t:9.2,v:0}, {t:10.0,v:-300,e:'inOutCubic'} ]
+                }
+            },
+            {
+                id: 'sticker-sound',
+                tracks: { 
+                    opacity: [ {t:0,v:0}, {t:0.6,v:1}, {t:9.4,v:1}, {t:10.0,v:0} ],
+                    scale: [ {t:0,v:0}, {t:0.9,v:1,e:'outBack'}, {t:9.2,v:1}, {t:10.0,v:0,e:'inOutCubic'} ],
+                    rot: [ {t:0,v:15}, {t:0.9,v:-5,e:'outBack'} ]
+                }
+            },
+            {
+                id: 'sticker-new',
+                tracks: { 
+                    opacity: [ {t:0,v:0}, {t:0.8,v:1}, {t:9.3,v:1}, {t:10.0,v:0} ],
+                    // Accent bounce at 5.5s
+                    scale: [ {t:0,v:0}, {t:1.0,v:1,e:'outBack'}, {t:5.5,v:1}, {t:5.8,v:1.15,e:'outBack'}, {t:6.3,v:1.0,e:'outBack'}, {t:9.0,v:1}, {t:10.0,v:0,e:'inOutCubic'} ],
+                    rot: [ {t:0,v:-45}, {t:1.0,v:12,e:'outBack'}, {t:5.5,v:12}, {t:5.8,v:25,e:'outBack'}, {t:6.3,v:12,e:'outBack'} ]
+                }
+            },
+
+            // --- HERO PRODUCT ---
+            {
+                id: 'boombox-wrapper',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:1.0,v:0}, {t:1.4,v:1,e:'linear'}, {t:9.0,v:1}, {t:9.8,v:0,e:'linear'} ],
+                    y: [ {t:0,v:400}, {t:1.0,v:400}, {t:2.0,v:0,e:'outBack'}, {t:9.0,v:0}, {t:10.0,v:400,e:'inOutCubic'} ],
+                    scale: [ {t:0,v:0.8}, {t:1.0,v:0.8}, {t:2.0,v:1.0,e:'outBack'}, {t:9.0,v:1.0}, {t:10.0,v:0.8,e:'inOutCubic'} ],
+                    // Subtle Showcase Rotation
+                    rot: [ {t:0,v:0}, {t:2.0,v:0}, {t:3.5,v:-2,e:'inOutCubic'}, {t:5.5,v:1.5,e:'inOutCubic'}, {t:7.5,v:-1,e:'inOutCubic'}, {t:9.0,v:0,e:'inOutCubic'} ]
+                }
+            },
+            
+            // --- PRODUCT HIGHLIGHT SWEEP ---
+            {
+                id: 'hl-sweep',
+                tracks: {
+                    x: [ {t:0,v:0}, {t:2.5,v:0}, {t:4.0,v:2200,e:'inOutCubic'}, {t:10.0,v:2200} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let elapsedTime = (timestamp - startTime) / 1000;
+            let t = elapsedTime % 10.0; // 10 second loop
+
+            // 1. Process Tracks
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                let x = conf.tracks.x ? evaluateTrack(conf.tracks.x, t, 0) : 0;
+                let y = conf.tracks.y ? evaluateTrack(conf.tracks.y, t, 0) : 0;
+                let scale = conf.tracks.scale ? evaluateTrack(conf.tracks.scale, t, 1) : 1;
+                let rot = conf.tracks.rot ? evaluateTrack(conf.tracks.rot, t, 0) : 0;
+                let opacity = conf.tracks.opacity ? evaluateTrack(conf.tracks.opacity, t, 1) : null;
+
+                // Center-based transforms vs specific transforms
+                if (el.classList.contains('track-el') && el.id !== 'hl-sweep') {
+                    // Adjust margin based positioning wrappers
+                    el.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg) scale(${scale})`;
+                } else if (el.id === 'hl-sweep') {
+                    el.setAttribute('transform', `translate(${x}, ${y})`);
+                }
+
+                if (opacity !== null) el.style.opacity = opacity;
+            });
+
+            // 2. Micro-Motions (Continuous Math)
+            
+            // Squiggles floating
+            let sqOffset1 = Math.sin(t * 2) * 30;
+            document.getElementById('squig1').style.transform = `translateY(${sqOffset1}px)`;
+            
+            let sqOffset2 = Math.cos(t * 1.5) * 40;
+            document.getElementById('squig2').style.transform = `translateY(${sqOffset2}px)`;
+
+            // Speaker pulsing on a "beat" between 2.0s and 8.0s
+            let speakerScale = 1.0;
+            if (t > 2.0 && t < 8.0) {
+                // Creates a snappy pulse every 0.6 seconds
+                let beat = (t - 2.0) % 0.6;
+                if (beat < 0.2) {
+                    speakerScale = 1.0 + (0.05 * Math.sin((beat / 0.2) * Math.PI));
+                }
+            }
+            document.getElementById('spk-l').style.transform = `scale(${speakerScale})`;
+            document.getElementById('spk-r').style.transform = `scale(${speakerScale})`;
+
+            // Loop forever
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation Loop
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

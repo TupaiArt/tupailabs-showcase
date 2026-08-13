@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kinetic Typography: Word Battle</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #0A0A0A;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: sans-serif;
+        }
+
+        /* 16:9 Aspect Ratio Container */
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; /* 16/9 * 100 */
+            max-height: 56.25vw; /* 9/16 * 100 */
+            background-color: #111111;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.8);
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <canvas id="kineticCanvas" width="1920" height="1080"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('kineticCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ==========================================
+    // 1. ENGINE & EASING FUNCTIONS
+    // ==========================================
+    const DURATION = 5.0; // 5 seconds perfect loop
+    
+    const easings = {
+        linear: x => x,
+        easeOutCubic: x => 1 - Math.pow(1 - x, 3),
+        easeInCubic: x => x * x * x,
+        easeInOutSine: x => -(Math.cos(Math.PI * x) - 1) / 2,
+        easeOutExpo: x => x === 1 ? 1 : 1 - Math.pow(2, -10 * x),
+        easeOutBack: x => { const c1 = 1.70158; const c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); },
+        snap: x => x < 1 ? 0 : 1 // Menahan animasi sebelum selesai
+    };
+
+    function evaluateTrack(track, t, defaultValue = 0) {
+        if (!track || track.length === 0) return defaultValue;
+        if (t <= track[0].t) return track[0].v;
+        if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+        for (let i = 0; i < track.length - 1; i++) {
+            if (t >= track[i].t && t < track[i + 1].t) {
+                const k1 = track[i], k2 = track[i + 1];
+                const p = (t - k1.t) / (k2.t - k1.t);
+                const ease = easings[k2.e || 'linear'];
+                return k1.v + (k2.v - k1.v) * ease(p);
+            }
+        }
+        return defaultValue;
+    }
+
+    // Color Lerp (Base: #F5F1E8, Accent: #FF4D3D)
+    function lerpColor(blend) {
+        // Base
+        let r1 = 245, g1 = 241, b1 = 232;
+        // Accent
+        let r2 = 255, g2 = 77, b2 = 61;
+        
+        let r = Math.round(r1 + (r2 - r1) * blend);
+        let g = Math.round(g1 + (g2 - g1) * blend);
+        let b = Math.round(b1 + (b2 - b1) * blend);
+        return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    // ==========================================
+    // 2. CHOREOGRAPHY KEYFRAMES
+    // Semantic Motion Grammar untuk 4 Karakter
+    // ==========================================
+    
+    // FAST: Sharp, aggressive, high-acceleration, directional.
+    const fast = {
+        baseX: 450, baseY: 300,
+        x: [
+            {t: 0.0, v: -300}, 
+            {t: 0.7, v: 0, e: 'easeOutExpo'}, 
+            {t: 1.0, v: 60, e: 'easeOutCubic'}, 
+            {t: 1.2, v: -30, e: 'easeInOutSine'}, 
+            {t: 1.5, v: 80, e: 'easeOutCubic'}, 
+            {t: 2.0, v: 0, e: 'easeOutExpo'}, 
+            {t: 3.0, v: 0}, 
+            {t: 4.0, v: 100, e: 'easeInCubic'}, // Anticipation
+            {t: 4.15, v: 450, e: 'easeOutExpo'}, // COLLISION DASH!
+            {t: 4.5, v: 450}, // SNAP HOLD
+            {t: 5.0, v: 0, e: 'easeOutCubic'} // RESET
+        ],
+        y: [
+            {t: 0.0, v: 0}, {t: 4.0, v: 0}, {t: 4.15, v: 120, e: 'easeOutExpo'}, {t: 4.5, v: 120}, {t: 5.0, v: 0, e: 'easeOutCubic'}
+        ],
+        rot: [
+            {t: 0.0, v: 0}, {t: 0.7, v: 0}, {t: 1.0, v: 3, e: 'easeOutCubic'}, {t: 1.2, v: -2, e: 'easeInOutSine'}, 
+            {t: 1.5, v: 1.5, e: 'easeOutCubic'}, {t: 2.0, v: 0, e: 'easeOutCubic'}, {t: 5.0, v: 0}
+        ],
+        color: [
+            {t: 0.0, v: 0}, {t: 0.7, v: 0}, {t: 0.8, v: 1}, {t: 1.5, v: 1}, {t: 2.0, v: 0}, 
+            {t: 4.0, v: 0}, {t: 4.1, v: 1}, {t: 4.5, v: 1}, {t: 5.0, v: 0}
+        ]
+    };
+
+    // SLOW: Heavy, deliberate, low acceleration, high inertia.
+    const slow = {
+        baseX: 450, baseY: 800,
+        x: [
+            {t: 0.0, v: -80}, {t: 0.7, v: 0, e: 'easeOutCubic'}, {t: 5.0, v: 0}
+        ],
+        y: [
+            {t: 0.0, v: 0}, {t: 0.7, v: 0}, {t: 1.6, v: 25, e: 'easeInOutSine'}, {t: 2.5, v: 0, e: 'easeInOutSine'}, 
+            {t: 3.5, v: 0}, {t: 4.5, v: 45, e: 'easeInOutSine'}, {t: 5.0, v: 0, e: 'easeInOutSine'}
+        ],
+        scale: [
+            {t: 0.0, v: 1}, {t: 0.7, v: 1}, {t: 1.6, v: 1.06, e: 'easeInOutSine'}, {t: 2.5, v: 1, e: 'easeInOutSine'}, {t: 5.0, v: 1}
+        ],
+        color: [
+            {t: 0.0, v: 0}, {t: 0.7, v: 0}, {t: 1.6, v: 0.5, e: 'easeInOutSine'}, {t: 2.5, v: 0, e: 'easeInOutSine'}, {t: 5.0, v: 0}
+        ]
+    };
+
+    // LOUD: Explosive, dominant, expanding amplitude.
+    const loud = {
+        baseX: 1470, baseY: 300,
+        scale: [
+            {t: 0.0, v: 0}, 
+            {t: 0.7, v: 1, e: 'easeOutBack'}, 
+            {t: 1.0, v: 1}, 
+            {t: 1.15, v: 1.45, e: 'easeOutCubic'}, 
+            {t: 1.3, v: 0.95, e: 'easeInOutSine'}, 
+            {t: 1.5, v: 1.25, e: 'easeOutExpo'}, 
+            {t: 2.0, v: 1, e: 'easeOutCubic'}, 
+            {t: 3.0, v: 1}, 
+            {t: 4.0, v: 1.2, e: 'easeInCubic'}, // Anticipation
+            {t: 4.15, v: 2.8, e: 'easeOutCubic'}, // COLLISION EXPLOSION!
+            {t: 4.5, v: 2.8}, // SNAP HOLD
+            {t: 5.0, v: 1, e: 'easeOutCubic'} // RESET
+        ],
+        x: [
+            {t: 0.0, v: 0}, {t: 4.0, v: 0}, {t: 4.15, v: -450, e: 'easeOutExpo'}, {t: 4.5, v: -450}, {t: 5.0, v: 0, e: 'easeOutCubic'}
+        ],
+        y: [
+            {t: 0.0, v: 0}, {t: 4.0, v: 0}, {t: 4.15, v: 120, e: 'easeOutExpo'}, {t: 4.5, v: 120}, {t: 5.0, v: 0, e: 'easeOutCubic'}
+        ],
+        color: [
+            {t: 0.0, v: 0}, {t: 1.0, v: 0}, {t: 1.15, v: 1, e: 'easeOutCubic'}, {t: 1.5, v: 1}, {t: 2.0, v: 0, e: 'easeOutCubic'}, 
+            {t: 4.0, v: 0}, {t: 4.1, v: 1}, {t: 4.5, v: 1}, {t: 5.0, v: 0}
+        ]
+    };
+
+    // QUIET: Subtle, restrained, nearly invisible movement (breathing).
+    const quiet = {
+        baseX: 1470, baseY: 800,
+        opacity: [
+            {t: 0.0, v: 0}, {t: 0.7, v: 1, e: 'easeInCubic'}, {t: 1.0, v: 1}, 
+            {t: 1.6, v: 0.7, e: 'easeInOutSine'}, {t: 2.3, v: 1, e: 'easeInOutSine'}, {t: 5.0, v: 1}
+        ],
+        y: [
+            {t: 0.0, v: 0}, {t: 1.0, v: 0}, {t: 1.6, v: -3, e: 'easeInOutSine'}, 
+            {t: 2.3, v: 3, e: 'easeInOutSine'}, {t: 3.5, v: 0, e: 'easeInOutSine'}, {t: 5.0, v: 0}
+        ],
+        ls: [
+            {t: 0.0, v: 0}, {t: 1.0, v: 0}, {t: 2.3, v: 4, e: 'easeInOutSine'}, 
+            {t: 4.5, v: 1, e: 'easeInOutSine'}, {t: 5.0, v: 0}
+        ],
+        color: [
+            {t: 0.0, v: 0}, {t: 1.6, v: 0.15}, {t: 2.3, v: 0}, {t: 5.0, v: 0}
+        ]
+    };
+
+    // Impact Rings (Spawned by LOUD)
+    const rings = {
+        r1_scale: [{t: 1.0, v: 0.8}, {t: 1.8, v: 2.0, e: 'easeOutCubic'}, {t: 5.0, v: 2.0}],
+        r1_op: [{t: 0.0, v: 0}, {t: 0.99, v: 0}, {t: 1.0, v: 0.6}, {t: 1.8, v: 0, e: 'easeOutCubic'}, {t: 5.0, v: 0}],
+        
+        r2_scale: [{t: 4.0, v: 1.0}, {t: 4.6, v: 4.0, e: 'easeOutCubic'}, {t: 5.0, v: 4.0}],
+        r2_op: [{t: 0.0, v: 0}, {t: 3.99, v: 0}, {t: 4.0, v: 0.8}, {t: 4.6, v: 0, e: 'easeOutCubic'}, {t: 5.0, v: 0}]
+    };
+
+
+    // ==========================================
+    // 3. RENDER LOOP
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let t = ((timestamp - startTime) / 1000) % DURATION;
+
+        // Clear Canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Setup Base Typography Style
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = '900 140px "Arial Black", Impact, sans-serif';
+
+        // --- DRAW LOUD RINGS ---
+        let r1s = evaluateTrack(rings.r1_scale, t);
+        let r1o = evaluateTrack(rings.r1_op, t);
+        if (r1o > 0) {
+            ctx.save();
+            ctx.translate(loud.baseX + evaluateTrack(loud.x, t), loud.baseY + evaluateTrack(loud.y, t));
+            ctx.scale(r1s, r1s);
+            ctx.strokeStyle = `rgba(255, 77, 61, ${r1o})`;
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(0, 0, 180, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        let r2s = evaluateTrack(rings.r2_scale, t);
+        let r2o = evaluateTrack(rings.r2_op, t);
+        if (r2o > 0) {
+            ctx.save();
+            ctx.translate(loud.baseX + evaluateTrack(loud.x, t), loud.baseY + evaluateTrack(loud.y, t));
+            ctx.scale(r2s, r2s);
+            ctx.strokeStyle = `rgba(255, 77, 61, ${r2o})`;
+            ctx.lineWidth = 15;
+            ctx.beginPath();
+            ctx.arc(0, 0, 180, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        // --- DRAW SLOW ---
+        ctx.save();
+        let sx = slow.baseX + evaluateTrack(slow.x, t);
+        let sy = slow.baseY + evaluateTrack(slow.y, t);
+        let sScale = evaluateTrack(slow.scale, t);
+        ctx.translate(sx, sy);
+        ctx.scale(sScale, sScale);
+        ctx.fillStyle = lerpColor(evaluateTrack(slow.color, t));
+        ctx.letterSpacing = "0px";
+        ctx.fillText("SLOW", 0, 0);
+        ctx.restore();
+
+        // --- DRAW QUIET ---
+        ctx.save();
+        let qx = quiet.baseX;
+        let qy = quiet.baseY + evaluateTrack(quiet.y, t);
+        ctx.globalAlpha = evaluateTrack(quiet.opacity, t);
+        ctx.translate(qx, qy);
+        ctx.fillStyle = lerpColor(evaluateTrack(quiet.color, t));
+        ctx.letterSpacing = evaluateTrack(quiet.ls, t) + "px";
+        ctx.fillText("QUIET", 0, 0);
+        ctx.restore();
+
+        // --- DRAW LOUD ---
+        ctx.save();
+        let lx = loud.baseX + evaluateTrack(loud.x, t);
+        let ly = loud.baseY + evaluateTrack(loud.y, t);
+        let lScale = evaluateTrack(loud.scale, t);
+        ctx.translate(lx, ly);
+        ctx.scale(lScale, lScale);
+        ctx.fillStyle = lerpColor(evaluateTrack(loud.color, t));
+        ctx.letterSpacing = "0px";
+        ctx.fillText("LOUD", 0, 0);
+        ctx.restore();
+
+        // --- DRAW FAST ---
+        ctx.save();
+        let fx = fast.baseX + evaluateTrack(fast.x, t);
+        let fy = fast.baseY + evaluateTrack(fast.y, t);
+        let fRot = evaluateTrack(fast.rot, t);
+        
+        // Calculate velocity for motion blur
+        let pastX = evaluateTrack(fast.x, Math.max(0, t - 0.04));
+        let velocityX = (evaluateTrack(fast.x, t) - pastX);
+
+        ctx.translate(fx, fy);
+        ctx.rotate((fRot * Math.PI) / 180);
+        ctx.fillStyle = lerpColor(evaluateTrack(fast.color, t));
+        ctx.letterSpacing = "0px";
+
+        // Procedural Motion Blur (Ghosting based on velocity)
+        if (Math.abs(velocityX) > 5 && t < 4.15) {
+            ctx.globalAlpha = 0.4;
+            ctx.fillText("FAST", -velocityX * 0.4, 0);
+            ctx.globalAlpha = 0.15;
+            ctx.fillText("FAST", -velocityX * 0.8, 0);
+            ctx.globalAlpha = 1.0; // Reset for main text
+        }
+        
+        ctx.fillText("FAST", 0, 0);
+        ctx.restore();
+
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+</script>
+
+</body>
+</html>

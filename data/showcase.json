@@ -1,0 +1,158 @@
+[
+  {
+    "title": "Terminal & Retro Tech",
+    "subtitle": "Hacker Interface",
+    "category": "Retro Tech",
+    "video": "videos/terminal_retro_tech_video.mp4"
+  },
+  {
+    "title": "Retro Vaporwave",
+    "subtitle": "Sunset Drive",
+    "category": "Vaporwave",
+    "video": "videos/retro_vaporwave_drive_video.mp4"
+  },
+  {
+    "title": "Path Drawing",
+    "subtitle": "Treasure Map",
+    "category": "Path Drawing",
+    "video": "videos/path_drawing_treasure_map_video.mp4"
+  },
+  {
+    "title": "Particle System",
+    "subtitle": "Fireworks",
+    "category": "Particle System",
+    "video": "videos/particle_fireworks_video.mp4"
+  },
+  {
+    "title": "Parallax Scroll",
+    "subtitle": "Mountain Landscape",
+    "category": "Parallax",
+    "video": "videos/parallax_mountain_landscape_video.mp4"
+  },
+  {
+    "title": "Neumorphism",
+    "subtitle": "Calculator",
+    "category": "Neumorphism",
+    "video": "videos/neumorphism_calculator_video_video.mp4"
+  },
+  {
+    "title": "Morph Animation",
+    "subtitle": "Object Transformation",
+    "category": "Morphing",
+    "video": "videos/morph_object_transformation_video.mp4"
+  },
+  {
+    "title": "Micro-interaction",
+    "subtitle": "Music Player",
+    "category": "Micro-interaction",
+    "video": "videos/microinteraction_music_player_video.mp4"
+  },
+  {
+    "title": "Micro Interaction CSS",
+    "subtitle": "Dark Mode Toggle",
+    "category": "Micro-interaction",
+    "video": "videos/microinteraction_dark_mode_video.mp4"
+  },
+  {
+    "title": "Memphis Design",
+    "subtitle": "Product Ad",
+    "category": "Memphis",
+    "video": "videos/memphis_product_ad_video.mp4"
+  },
+  {
+    "title": "Low Poly",
+    "subtitle": "Eagle Animation",
+    "category": "Low Poly",
+    "video": "videos/low_poly_eagle_video.mp4"
+  },
+  {
+    "title": "Line Icon Animation",
+    "subtitle": "Emergency Sequence",
+    "category": "Line Icon",
+    "video": "videos/line_icon_emergency_sequence_video.mp4"
+  },
+  {
+    "title": "Layered Flat Design",
+    "subtitle": "Forest Landscape",
+    "category": "Flat Design",
+    "video": "videos/layered_flat_forest_video.mp4"
+  },
+  {
+    "title": "Kinetic Typography",
+    "subtitle": "Word Battle",
+    "category": "Typography",
+    "video": "videos/kinetic_typography_word_battle_video.mp4"
+  },
+  {
+    "title": "Isometric Flat Illustration",
+    "subtitle": "Smart Farm",
+    "category": "Isometric",
+    "video": "videos/isometric_smart_farm_video.mp4"
+  },
+  {
+    "title": "Isometric SVG",
+    "subtitle": "Factory Automation",
+    "category": "Isometric",
+    "video": "videos/isometric_factory_svg_video.mp4"
+  },
+  {
+    "title": "Gradient Mesh",
+    "subtitle": "Aurora Northern Lights",
+    "category": "Gradient",
+    "video": "videos/gradient_mesh_aurora_video.mp4"
+  },
+  {
+    "title": "Gradient Blob",
+    "subtitle": "Liquid Ink",
+    "category": "Gradient",
+    "video": "videos/gradient_blob_liquid_ink_video.mp4"
+  },
+  {
+    "title": "Glyph Icon",
+    "subtitle": "Typography Creature",
+    "category": "Typography",
+    "video": "videos/glyph_icon_typography_creature_video.mp4"
+  },
+  {
+    "title": "Glassmorphism",
+    "subtitle": "Weather App",
+    "category": "Glassmorphism",
+    "video": "videos/glassmorphism_weather_app_video.mp4"
+  },
+  {
+    "title": "Flat Design With Depth",
+    "subtitle": "Smartphone Showcase",
+    "category": "Flat Design",
+    "video": "videos/flat_design_depth_smartphone_video.mp4"
+  },
+  {
+    "title": "Flat Design",
+    "subtitle": "Business Dashboard",
+    "category": "Flat Design",
+    "video": "videos/flat_business_dashboard_video.mp4"
+  },
+  {
+    "title": "Duotone",
+    "subtitle": "Music Album Cover",
+    "category": "Duotone",
+    "video": "videos/duotone_music_album_video.mp4"
+  },
+  {
+    "title": "Brutalist Web Design",
+    "subtitle": "Breaking News Poster",
+    "category": "Brutalist",
+    "video": "videos/brutalist_breaking_news_video.mp4"
+  },
+  {
+    "title": "Bento Grid",
+    "subtitle": "Smart Home",
+    "category": "Bento Grid",
+    "video": "videos/bento_smart_home_video.mp4"
+  },
+  {
+    "title": "2D Flat Explainer",
+    "subtitle": "How Coffee Is Made",
+    "category": "Flat Design",
+    "video": "videos/2d_flat_coffee_process_video.mp4"
+  }
+]

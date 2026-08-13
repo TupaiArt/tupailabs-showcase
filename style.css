@@ -1,0 +1,165 @@
+/* --- VARIABLES --- */
+:root {
+    --bg-main: #050505;       
+    --bg-card: #141415;       
+    --text-primary: #f5f5f7;  
+    --text-secondary: #86868b;
+    --accent-purple: #812ce5; 
+    --accent-orange: #f58820; 
+}
+
+/* --- RESET & TYPOGRAPHY --- */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+}
+
+/* --- LAYOUT --- */
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+}
+
+/* --- HERO SECTION --- */
+.hero {
+    text-align: center;
+    padding: 5rem 1rem 3rem;
+}
+
+.logo-container {
+    margin-bottom: 1.5rem;
+}
+
+.logo {
+    max-width: 400px; /* Mentok di ukuran asli logo lu biar pecah/blur */
+    width: 100%;      /* Kalau layar HP lebih kecil dari 400px, dia otomatis menyesuaikan */
+    height: auto;     /* Menjaga proporsi asli 400x88 biar gak gepeng */
+    display: block;   
+    margin: 0 auto;   /* Memastikan logo tetap rata tengah di layar apa pun */
+    border-radius: 0; /* Hapus lengkungan karena ini PNG transparan */
+    box-shadow: none; /* Hapus bayangan */
+}
+
+.hero h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(90deg, var(--text-primary), var(--text-secondary));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.hero p {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+/* --- GRID & CARDS --- */
+.grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+}
+
+@media (min-width: 768px) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.card {
+    background: var(--bg-card);
+    border-radius: 20px;
+    overflow: hidden;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.video-wrapper {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 16/9;
+    background: #000;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+/* --- VIDEO PROTECTION --- */
+video { 
+    width: 100%; 
+    height: 100%; 
+    object-fit: contain;
+    pointer-events: none; /* Memblokir klik langsung agar tidak bisa didownload */
+    -webkit-touch-callout: none; /* Memblokir long-press di HP */
+}
+
+/* --- PLAY BUTTON OVERLAY --- */
+.status-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(0, 0, 0, 0.6);
+    color: white;
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    opacity: 1; /* Selalu tampil di awal sebelum di-play */
+    pointer-events: none;
+    transition: 0.3s;
+    backdrop-filter: blur(4px);
+}
+
+/* --- CARD CONTENT --- */
+.card-content {
+    padding: 1.5rem;
+}
+
+.card-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.25rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.card-subtitle {
+    font-size: 0.95rem;
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+/* --- ERROR MESSAGE --- */
+.hidden {
+    display: none !important;
+}
+
+#error-message {
+    text-align: center;
+    padding: 3rem;
+    color: var(--accent-orange);
+    background: rgba(245, 136, 32, 0.1);
+    border-radius: 12px;
+    border: 1px solid rgba(245, 136, 32, 0.3);
+}

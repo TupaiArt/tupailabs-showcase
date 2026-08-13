@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Procedural Liquid Ink Simulation</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #F7F5F0; /* Clean light canvas */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #F7F5F0;
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * LIQUID CONTAINER & FILTER
+         * The gooey filter fuses the overlapping SVG paths into a single contiguous fluid volume.
+         * mix-blend-mode: multiply creates realistic ink color blending at the collision intersections.
+         */
+        #fluid-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            mix-blend-mode: multiply;
+            will-change: opacity;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <div id="fluid-layer">
+            <svg viewBox="0 0 3840 2160">
+                <defs>
+                    <!-- 
+                        GOOEY FILTER
+                        filterUnits="userSpaceOnUse" with massive dimensions prevents the SVG from 
+                        clipping the blur effect when the path grows rapidly.
+                    -->
+                    <filter id="goo" filterUnits="userSpaceOnUse" x="-1000" y="-1000" width="6000" height="6000">
+                        <feGaussianBlur in="SourceGraphic" stdDeviation="45" result="blur" />
+                        <feColorMatrix in="blur" mode="matrix" values="
+                            1 0 0 0 0  
+                            0 1 0 0 0  
+                            0 0 1 0 0  
+                            0 0 0 80 -40" result="goo" />
+                    </filter>
+                    
+                    <!-- Ink A Gradient (Deep Violet / Blue) -->
+                    <radialGradient id="gradA" cx="40%" cy="30%" r="70%">
+                        <stop offset="0%" stop-color="#4A148C" />
+                        <stop offset="100%" stop-color="#1A237E" />
+                    </radialGradient>
+                    
+                    <!-- Ink B Gradient (Magenta / Red) -->
+                    <radialGradient id="gradB" cx="60%" cy="40%" r="70%">
+                        <stop offset="0%" stop-color="#FF1744" />
+                        <stop offset="100%" stop-color="#B71C1C" />
+                    </radialGradient>
+                    
+                    <!-- Ink C Gradient (Mixed Blend Core) -->
+                    <radialGradient id="gradC" cx="50%" cy="50%" r="60%">
+                        <stop offset="0%" stop-color="#D500F9" />
+                        <stop offset="100%" stop-color="#651FFF" />
+                    </radialGradient>
+                </defs>
+
+                <!-- The filter is applied to a group containing all ink masses -->
+                <g filter="url(#goo)">
+                    <path id="ink-a" fill="url(#gradA)" d="" />
+                    <path id="ink-b" fill="url(#gradB)" d="" />
+                    <path id="ink-c" fill="url(#gradC)" d="" />
+                </g>
+            </svg>
+        </div>
+    </div>
+
+    <script>
+        /**
+         * ANIMATION ENGINE & EASINGS
+         */
+        const easings = {
+            linear: x => x,
+            easeInQuad: x => x * x, // Gravity acceleration
+            outCubic: x => 1 - Math.pow(1 - x, 3),
+            inOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    const eased = easings[kf2.e || 'linear'](progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * CHOREOGRAPHY TRACKS (10 Second Seamless Loop)
+         */
+
+        // Global Scene Fade (Hides the shapes while they reset to starting positions)
+        const sceneOpacity = [
+            {t:0,v:1}, {t:9.5,v:1}, {t:9.7,v:0}, {t:9.99,v:0}, {t:10.0,v:1}
+        ];
+
+        // INK A: The Primary Drop
+        // CY lifted to 1200 to give plenty of room at the bottom of the 2160px canvas
+        const inkA = {
+            cx: [ {t:0,v:1920}, {t:6.2,v:1920}, {t:9.5,v:4200,e:'inOutCubic'} ],
+            cy: [ {t:0,v:-600}, {t:1.0,v:1200,e:'easeInQuad'}, {t:6.2,v:1200}, {t:9.5,v:3500,e:'inOutCubic'} ],
+            baseR: [ {t:0,v:140}, {t:1.0,v:140}, {t:1.8,v:380,e:'outCubic'}, {t:3.5,v:480,e:'linear'} ],
+            
+            // Teardrop elongation during fall, then negative snap to squash the top
+            dropStretch: [ {t:0,v:800}, {t:1.0,v:800}, {t:1.25,v:-150,e:'outCubic'}, {t:1.8,v:0,e:'inOutCubic'} ],
+            // Flattens bottom against the "floor" and bulges sides
+            squash: [ {t:0,v:0}, {t:1.0,v:0}, {t:1.2,v:400,e:'outCubic'}, {t:2.8,v:80,e:'inOutCubic'} ],
+            
+            // Pushed inward from the right when B collides
+            indentRight: [ {t:0,v:0}, {t:4.6,v:0}, {t:5.0,v:320,e:'outCubic'}, {t:6.2,v:0,e:'inOutCubic'} ],
+            
+            // Elongates towards bottom-right as it flows out
+            flowStretch: [ {t:0,v:0}, {t:6.2,v:0}, {t:9.5,v:2000,e:'inOutCubic'} ],
+            
+            wobAmp: [ {t:0,v:0}, {t:1.0,v:0}, {t:2.0,v:70,e:'inOutCubic'}, {t:6.2,v:70}, {t:8.0,v:20,e:'inOutCubic'} ],
+            
+            tendrils: [
+                // Spread tendrils
+                { angle: Math.PI * 0.75, width: 0.35, length: [ {t:1.8,v:0}, {t:2.5,v:280,e:'outCubic'}, {t:4.5,v:40,e:'inOutCubic'} ] },
+                { angle: Math.PI * 0.25, width: 0.35, length: [ {t:2.0,v:0}, {t:2.8,v:240,e:'outCubic'}, {t:4.8,v:0,e:'inOutCubic'} ] },
+                // Drag trails during exit
+                { angle: Math.PI * 1.25, width: 0.2, length: [ {t:6.2,v:0}, {t:8.5,v:1600,e:'inOutCubic'}, {t:9.5,v:2200} ] }
+            ],
+            opacity: [ {t:0,v:1} ] 
+        };
+
+        // INK B: The Lateral Intruder
+        const inkB = {
+            cx: [ {t:3.4,v:4200}, {t:4.8,v:2550,e:'outCubic'}, {t:6.2,v:2550}, {t:9.5,v:4850,e:'inOutCubic'} ],
+            cy: [ {t:3.4,v:1200}, {t:6.2,v:1200}, {t:9.5,v:3500,e:'inOutCubic'} ],
+            baseR: [ {t:3.4,v:300}, {t:4.8,v:380,e:'outCubic'}, {t:6.2,v:450,e:'inOutCubic'} ],
+            
+            // Stretches left-to-right as it shoots in
+            enterStretch: [ {t:3.4,v:600}, {t:4.9,v:0,e:'outCubic'} ],
+            
+            dropStretch: [ {t:0,v:0} ],
+            squash: [ {t:0,v:0} ],
+            
+            // Pushed inward from the left when hitting A
+            indentLeft: [ {t:0,v:0}, {t:4.6,v:0}, {t:5.0,v:280,e:'outCubic'}, {t:6.2,v:0,e:'inOutCubic'} ],
+            
+            flowStretch: [ {t:0,v:0}, {t:6.2,v:0}, {t:9.5,v:1800,e:'inOutCubic'} ],
+            
+            wobAmp: [ {t:0,v:0}, {t:4.5,v:0}, {t:5.5,v:60,e:'outCubic'} ],
+            
+            tendrils: [
+                // Collision splash tendrils
+                { angle: Math.PI * 1.15, width: 0.25, length: [ {t:4.8,v:0}, {t:5.2,v:350,e:'outCubic'}, {t:6.4,v:0,e:'inOutCubic'} ] },
+                { angle: Math.PI * 0.85, width: 0.3, length: [ {t:4.8,v:0}, {t:5.3,v:400,e:'outCubic'}, {t:6.5,v:0,e:'inOutCubic'} ] },
+                // Drag trails during exit
+                { angle: Math.PI * 1.35, width: 0.2, length: [ {t:6.2,v:0}, {t:8.7,v:1400,e:'inOutCubic'}, {t:9.5,v:1900} ] }
+            ],
+            opacity: [ {t:0,v:0}, {t:3.39,v:0}, {t:3.4,v:1} ]
+        };
+
+        // INK C: The Blended Core (Spawns at intersection and expands to seamlessly unify them)
+        const inkC = {
+            cx: [ {t:0,v:2230}, {t:6.2,v:2230}, {t:9.5,v:4530,e:'inOutCubic'} ],
+            cy: [ {t:0,v:1200}, {t:6.2,v:1200}, {t:9.5,v:3500,e:'inOutCubic'} ],
+            baseR: [ {t:0,v:0}, {t:4.8,v:0}, {t:6.5,v:580,e:'inOutCubic'} ],
+            
+            enterStretch: [ {t:0,v:0} ],
+            dropStretch: [ {t:0,v:0} ],
+            squash: [ {t:0,v:0} ],
+            indentLeft: [ {t:0,v:0} ],
+            indentRight: [ {t:0,v:0} ],
+            
+            flowStretch: [ {t:0,v:0}, {t:6.2,v:0}, {t:9.5,v:2200,e:'inOutCubic'} ],
+            wobAmp: [ {t:0,v:0}, {t:5.0,v:0}, {t:6.5,v:50,e:'outCubic'} ],
+            tendrils: [],
+            
+            opacity: [ {t:0,v:0}, {t:4.79,v:0}, {t:4.8,v:1} ]
+        };
+
+        /**
+         * PROCEDURAL FLUID MATH
+         * Evaluates track properties into a smooth Catmull-Rom spline array of 32 control points.
+         */
+        function getBlobPoints(t, conf) {
+            let cx = evaluateTrack(conf.cx, t, 0);
+            let cy = evaluateTrack(conf.cy, t, 0);
+            let baseR = evaluateTrack(conf.baseR, t, 0);
+            let dropStretch = evaluateTrack(conf.dropStretch, t, 0);
+            let squash = evaluateTrack(conf.squash, t, 0);
+            let indentRight = evaluateTrack(conf.indentRight, t, 0);
+            let indentLeft = evaluateTrack(conf.indentLeft, t, 0);
+            let enterStretch = evaluateTrack(conf.enterStretch, t, 0);
+            let flowStretch = evaluateTrack(conf.flowStretch, t, 0);
+            let wobAmp = evaluateTrack(conf.wobAmp, t, 0);
+
+            let pts = [];
+            let N = 32; // High vertex count for premium smoothness
+            
+            for(let i=0; i<N; i++) {
+                let angle = (i / N) * Math.PI * 2;
+                let r = baseR;
+
+                // 1. Organic Wobble (Two interacting sine waves based on time)
+                if(wobAmp > 0) {
+                    let w1 = Math.sin(angle * 3 + t * Math.PI * 0.4) * wobAmp;
+                    let w2 = Math.cos(angle * 5 - t * Math.PI * 0.6) * (wobAmp * 0.6);
+                    r += w1 + w2;
+                }
+
+                // 2. Drop Elongation (Teardrop shape pointing UP)
+                if(dropStretch > 0) {
+                    let factor = Math.max(0, -Math.sin(angle));
+                    r += Math.pow(factor, 1.5) * dropStretch;
+                } else if (dropStretch < 0) {
+                    // Squash top
+                    let factor = Math.max(0, -Math.sin(angle));
+                    r += factor * dropStretch; 
+                }
+
+                // 3. Impact Squash (Flattens bottom, pushes sides out)
+                if(squash > 0) {
+                    let down = Math.max(0, Math.sin(angle));
+                    let side = Math.abs(Math.cos(angle));
+                    r -= down * squash * 0.85;
+                    r += side * squash * 0.65;
+                }
+
+                // 4. Collision Compress (Pushes left/right sides inwards)
+                if(indentRight > 0) {
+                    let factor = Math.max(0, Math.cos(angle));
+                    r -= Math.pow(factor, 2.5) * indentRight;
+                }
+                if(indentLeft > 0) {
+                    let factor = Math.max(0, -Math.cos(angle));
+                    r -= Math.pow(factor, 2.5) * indentLeft;
+                }
+
+                // 5. Entrance Momentum (Shooting in from the right)
+                if(enterStretch > 0) {
+                    let factor = Math.max(0, Math.cos(angle));
+                    r += Math.pow(factor, 2) * enterStretch;
+                }
+
+                // 6. Flow Out Stretch (Directional momentum towards bottom-right)
+                if(flowStretch > 0) {
+                    let flowAngle = Math.PI / 4; // 45 degrees
+                    let factor = Math.max(0, Math.cos(angle - flowAngle));
+                    r += Math.pow(factor, 2.5) * flowStretch;
+                    // Taper the trailing end slightly
+                    let backFactor = Math.max(0, -Math.cos(angle - flowAngle));
+                    r -= backFactor * (flowStretch * 0.15);
+                }
+
+                // 7. Organic Tendril Eruptions
+                if(conf.tendrils && conf.tendrils.length > 0) {
+                    conf.tendrils.forEach(td => {
+                        let len = evaluateTrack(td.length, t, 0);
+                        if(len > 0) {
+                            let diff = Math.abs(angle - td.angle);
+                            if (diff > Math.PI) diff = 2 * Math.PI - diff;
+                            if (diff < td.width) {
+                                // Bell curve distribution mapping to path radius
+                                let intensity = Math.cos((diff / td.width) * (Math.PI / 2));
+                                r += Math.pow(intensity, 2) * len;
+                            }
+                        }
+                    });
+                }
+
+                // Hard floor safety against center-crossover anomalies
+                r = Math.max(2, r);
+
+                pts.push({
+                    x: cx + Math.cos(angle) * r,
+                    y: cy + Math.sin(angle) * r
+                });
+            }
+            return pts;
+        }
+
+        /**
+         * SPLINE TO SVG PATH CONVERSION
+         * Converts raw vertex points into a continuous smooth bezier curve.
+         */
+        function solveCurve(pts, tension = 0.25) {
+            let path = `M ${pts[0].x},${pts[0].y} `;
+            let len = pts.length;
+            for (let i = 0; i < len; i++) {
+                let p0 = pts[(i - 1 + len) % len];
+                let p1 = pts[i];
+                let p2 = pts[(i + 1) % len];
+                let p3 = pts[(i + 2) % len];
+                
+                let cp1x = p1.x + (p2.x - p0.x) * tension;
+                let cp1y = p1.y + (p2.y - p0.y) * tension;
+                let cp2x = p2.x - (p3.x - p1.x) * tension;
+                let cp2y = p2.y - (p3.y - p1.y) * tension;
+
+                path += `C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p2.x},${p2.y} `;
+            }
+            path += "Z";
+            return path;
+        }
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+        
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let elapsedTime = (timestamp - startTime) / 1000;
+            let t = elapsedTime % 10.0; // Perfect 10 second loop
+
+            // 1. Process Global Scene Opacity
+            let globalOpacity = evaluateTrack(sceneOpacity, t, 1);
+            document.getElementById('fluid-layer').style.opacity = globalOpacity;
+
+            // 2. Generate Points & Convert to Smooth SVG Paths
+            let ptsA = getBlobPoints(t, inkA);
+            document.getElementById('ink-a').setAttribute('d', solveCurve(ptsA));
+            document.getElementById('ink-a').style.opacity = evaluateTrack(inkA.opacity, t, 0);
+
+            let ptsB = getBlobPoints(t, inkB);
+            document.getElementById('ink-b').setAttribute('d', solveCurve(ptsB));
+            document.getElementById('ink-b').style.opacity = evaluateTrack(inkB.opacity, t, 0);
+
+            let ptsC = getBlobPoints(t, inkC);
+            document.getElementById('ink-c').setAttribute('d', solveCurve(ptsC));
+            document.getElementById('ink-c').style.opacity = evaluateTrack(inkC.opacity, t, 0);
+
+            // Loop forever
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

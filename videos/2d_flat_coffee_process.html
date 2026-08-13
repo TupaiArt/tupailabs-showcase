@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2D Flat Explainer: How Coffee is Made</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #F9F5EE;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        /* 16:9 Canvas Scale Wrapper */
+        #stage {
+            width: 100vw;
+            height: 100vh;
+            max-width: 177.78vh; 
+            max-height: 56.25vw;
+            background-color: #F9F5EE;
+            position: relative;
+            box-shadow: 0 0 50px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+            overflow: visible;
+        }
+    </style>
+</head>
+<body>
+
+<div id="stage">
+    <svg id="explainer-svg" viewBox="0 0 1920 1080"></svg>
+</div>
+
+<script>
+    const svg = document.getElementById('explainer-svg');
+
+    // ==========================================
+    // 1. COLORS & PALETTE
+    // ==========================================
+    const colors = {
+        bg: '#F9F5EE',
+        platform: '#EFE5D5',
+        shadow: '#E0D4BF',
+        charcoal: '#343A40',
+        charcoalLight: '#495057',
+        accent: '#F48C42',
+        metal: '#DEE2E6',
+        metalDark: '#ADB5BD',
+        bean: '#4E342E',
+        coffee: '#3E2723',
+        cup: '#FFFFFF',
+        text: '#212529'
+    };
+
+    // ==========================================
+    // 2. MATH & EASING UTILITIES
+    // ==========================================
+    function clamp(val, min = 0, max = 1) { return Math.max(min, Math.min(max, val)); }
+    function lerp(a, b, t) { return a + (b - a) * t; }
+    function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+    let seed = 101;
+    function random() {
+        let x = Math.sin(seed++) * 10000;
+        return x - Math.floor(x);
+    }
+
+    const groundParticles = [];
+    for(let i = 0; i < 15; i++) {
+        groundParticles.push({ ox: (random() - 0.5) * 20, oy: random() * 30, speed: 0.8 + random() * 0.5, size: 2 + random() * 2 });
+    }
+
+    // ==========================================
+    // 3. MAIN ANIMATION ENGINE (5-Second Loop)
+    // ==========================================
+    function render(timestamp) {
+        let t = (timestamp / 1000) % 5.0;
+
+        // --- A. CHOREOGRAPHY STATE TIMELINE ---
+        
+        // 1. Beans trajectory (0.0 - 0.8s)
+        let beanProgress = [];
+        for (let i = 0; i < 7; i++) {
+            let delay = i * 0.06;
+            let prog = clamp((t - delay) / 0.4);
+            beanProgress.push(prog); // Linear progress to handle arc + drop
+        }
+
+        // 2. Hopper Fill & Grinding (0.3 - 1.5s)
+        let hopperDarkOp = clamp((t - 0.2) / 0.6); // Interior darkens as beans fall
+        if (t > 1.4) hopperDarkOp = 1 - clamp((t - 1.4) / 0.3); // Empties
+
+        let grinderActive = (t > 0.6 && t < 1.5);
+        let grinderShakeX = grinderActive ? Math.sin(t * 120) * 1 : 0;
+        let groundProg = clamp((t - 0.7) / 0.7); // Particles falling
+        
+        // 3. Portafilter Transfer (1.5 - 2.1s)
+        let pfFilledOp = clamp((t - 0.8) / 0.6); // Coffee mound fills
+        let pfProg = clamp((t - 1.5) / 0.6);
+        let pfEase = easeInOutQuad(pfProg);
+        
+        // 4. Machine Brew (2.2 - 3.4s)
+        let machineActive = (t > 2.2 && t < 3.4);
+        let gaugeRot = machineActive ? lerp(0, 120, easeOutCubic(clamp((t - 2.2) / 0.3))) : 0;
+        let flowStart = clamp((t - 2.3) / 0.2); 
+        let flowEnd = clamp((t - 3.3) / 0.2);   
+        let fillProg = clamp((t - 2.4) / 0.9);
+        let fillEase = easeOutCubic(fillProg);
+
+        // 5. Cup Sliding / Serve (3.4 - 4.1s)
+        let serveEase = easeInOutQuad(clamp((t - 3.4) / 0.7));
+        let cupX = lerp(1250, 1650, serveEase); // Slides to the right safe margin
+
+        // 6. Steam & Final Text (4.0 - 5.0s)
+        let steamProg = clamp((t - 4.0) / 1.0);
+        let steamOp = Math.sin(steamProg * Math.PI); 
+        let textOp = clamp((t - 4.2) / 0.5);
+        let textY = lerp(20, 0, easeOutCubic(textOp));
+
+        // --- B. SVG STRING GENERATION ---
+        let svgStr = "";
+
+        // CLIP PATH for Cup Liquid
+        svgStr += `
+            <defs>
+                <clipPath id="cup-mask">
+                    <path d="M -45 720 L 45 720 C 45 800 -45 800 -45 720 Z" />
+                </clipPath>
+            </defs>
+        `;
+
+        // 1. BACKGROUND PLATFORM & CONNECTORS
+        svgStr += `<rect x="0" y="820" width="1920" height="260" fill="${colors.platform}" />`;
+        // Dotted connection lines
+        svgStr += `<path d="M 300 860 L 750 860 L 1250 860 L 1650 860" stroke="${colors.shadow}" stroke-width="4" stroke-dasharray="12 12" fill="none" stroke-linecap="round" />`;
+
+        // 2. STAGE LABELS
+        const labels = [
+            { x: 300, text: "01 — BEANS" },
+            { x: 750, text: "02 — GRIND" },
+            { x: 1250, text: "03 — BREW" },
+            { x: 1650, text: "04 — SERVE" }
+        ];
+        labels.forEach(lbl => {
+            svgStr += `<text x="${lbl.x}" y="920" font-size="18" font-weight="800" fill="${colors.charcoalLight}" text-anchor="middle" letter-spacing="2">${lbl.text}</text>`;
+        });
+
+        // 3. FINAL HERO TEXT
+        svgStr += `
+            <g transform="translate(960, ${150 + textY})" opacity="${textOp}">
+                <text x="0" y="0" font-size="54" font-weight="900" fill="${colors.charcoal}" text-anchor="middle" letter-spacing="4">FROM BEAN TO CUP</text>
+                <rect x="-60" y="20" width="120" height="6" fill="${colors.accent}" rx="3" />
+            </g>
+        `;
+
+        // ==========================================
+        // STATION 1: COFFEE BEANS (X: 300)
+        // ==========================================
+        let bx = 300, by = 820; // Bowl Base
+        
+        function drawBean(x, y, scale, rot) {
+            return `
+                <g transform="translate(${x}, ${y}) scale(${scale}) rotate(${rot})">
+                    <ellipse cx="0" cy="0" rx="18" ry="12" fill="${colors.bean}" />
+                    <path d="M -12 0 C -4 -8 4 8 12 0" stroke="#332018" stroke-width="2.5" fill="none" stroke-linecap="round" />
+                </g>
+            `;
+        }
+
+        // Bowl Shadow & Body
+        svgStr += `<ellipse cx="${bx}" cy="${by}" rx="90" ry="15" fill="${colors.shadow}" />`;
+        svgStr += `<path d="M ${bx - 80} 760 L ${bx + 80} 760 C ${bx + 80} 820 ${bx - 80} 820 ${bx - 80} 760 Z" fill="${colors.charcoal}" />`;
+        svgStr += `<ellipse cx="${bx}" cy="760" rx="80" ry="12" fill="${colors.charcoalLight}" />`;
+
+        // Animated Beans Trajectory (Arc to Hopper Lip, then Drop Inside)
+        for (let i = 0; i < 7; i++) {
+            let bp = beanProgress[i];
+            if (bp > 0 && bp < 1) {
+                // Split progress: 0-0.7 Arc, 0.7-1.0 Drop
+                let pArc = clamp(bp / 0.7);
+                let pDrop = clamp((bp - 0.7) / 0.3);
+                
+                let currX, currY, scale;
+                if (pArc < 1) {
+                    currX = lerp(bx + (i*10-30), 750, pArc);
+                    let arcY = Math.sin(pArc * Math.PI) * 220; // High arc
+                    currY = lerp(750, 380, pArc) - arcY; // Reach Hopper Lip (Y=380)
+                    scale = 1;
+                } else {
+                    let jitterX = Math.sin(i * 45) * 20; // Spread out inside hopper
+                    currX = 750 + jitterX;
+                    currY = lerp(380, 520, pDrop); // Drop to Hopper Base (Y=520)
+                    scale = lerp(1, 0.6, pDrop);
+                }
+                svgStr += drawBean(currX, currY, scale, bp * 360);
+            } else if (bp === 0) {
+                // Resting in bowl
+                svgStr += drawBean(bx + (i*20 - 60), 760 - (i%2*10), 1, i*30);
+            }
+        }
+
+        // ==========================================
+        // STATION 2: GRINDER & HOPPER (X: 750)
+        // ==========================================
+        let gx = 750, gy = 820; // Base
+        
+        svgStr += `<g transform="translate(${grinderShakeX}, 0)">`;
+        
+        // Shadow & Body
+        svgStr += `<rect x="${gx - 70}" y="${gy - 20}" width="140" height="20" fill="${colors.shadow}" rx="10" />`;
+        svgStr += `<rect x="${gx - 70}" y="${gy - 270}" width="140" height="270" fill="${colors.charcoal}" rx="15" />`;
+
+        // The Hopper (Corong)
+        // Depth/Back Wall
+        svgStr += `<polygon points="680,360 820,360 800,550 700,550" fill="#EFE6D5" />`;
+        // Darken interior as beans enter
+        svgStr += `<polygon points="680,360 820,360 800,550 700,550" fill="${colors.charcoal}" opacity="${hopperDarkOp}" />`;
+        
+        // Static Beans piling up at the bottom of the hopper
+        if (hopperDarkOp > 0) {
+            svgStr += `<g opacity="${hopperDarkOp}">`;
+            svgStr += drawBean(gx - 20, 520, 0.7, 45);
+            svgStr += drawBean(gx + 15, 530, 0.7, -20);
+            svgStr += drawBean(gx, 510, 0.7, 80);
+            svgStr += drawBean(gx + 25, 510, 0.7, 10);
+            svgStr += `</g>`;
+        }
+
+        // Front Glass of Hopper
+        svgStr += `<polygon points="660,380 840,380 790,550 710,550" fill="#FFFFFF" opacity="0.25" />`;
+        svgStr += `<polygon points="660,380 840,380 790,550 710,550" stroke="${colors.metalDark}" stroke-width="4" fill="none" stroke-linejoin="round" />`;
+
+        // Grinder Indicator & Details
+        let indColor = grinderActive ? colors.accent : colors.metal;
+        svgStr += `<circle cx="${gx}" cy="${gy - 150}" r="8" fill="${indColor}" />`;
+        svgStr += `<rect x="${gx - 40}" y="${gy - 220}" width="80" height="10" fill="${colors.charcoalLight}" rx="5" />`;
+
+        // Grinder Chute (Output)
+        svgStr += `<path d="M 820 620 L 850 640 L 840 660 L 820 660 Z" fill="${colors.metalDark}" />`;
+
+        // Falling Ground Particles
+        if (groundProg > 0 && groundProg < 1) {
+            groundParticles.forEach(p => {
+                let pDrop = clamp((groundProg - p.ox/100) * p.speed);
+                let pY = lerp(650, 710, pDrop); // Falls into portafilter basket
+                if (pDrop > 0 && pDrop < 1) {
+                    svgStr += `<circle cx="${830 + p.ox}" cy="${pY}" r="${p.size}" fill="${colors.coffee}" />`;
+                }
+            });
+        }
+        svgStr += `</g>`; // End Grinder Group
+
+
+        // ==========================================
+        // STATION 3: PORTAFILTER & ESPRESSO MACHINE
+        // ==========================================
+        // Portafilter Movement Logic
+        let pfStartX = 820, pfStartY = 700; // Positioned under grinder chute
+        let pfEndX = 1250, pfEndY = 560;    // Positioned at machine group head
+        
+        let currPfX = lerp(pfStartX, pfEndX, pfEase);
+        let currPfY = lerp(pfStartY, pfEndY, pfEase) - Math.sin(pfEase * Math.PI) * 80; // Small lift
+        let pfRot = lerp(-15, 0, pfEase); // Tilts straight to dock
+        
+        if (pfProg === 1) { currPfX = pfEndX; currPfY = pfEndY; pfRot = 0; }
+        
+        // Portafilter Visibility
+        let pfOp = (t > 0.6 || pfProg === 1) ? 1 : 0; 
+        if(t > 0.6 && t < 0.8) pfOp = (t - 0.6)/0.2; // Appears under grinder
+
+        let portafilterSVG = `
+            <g transform="translate(${currPfX}, ${currPfY}) rotate(${pfRot})" opacity="${pfOp}">
+                <!-- Shadow against backplate -->
+                <path d="M -20 5 L 60 5 L 60 15 L -20 15 Z" fill="${colors.shadow}" transform="translate(10,10)" opacity="${pfProg}" />
+                <!-- Handle -->
+                <rect x="25" y="-8" width="70" height="16" fill="${colors.charcoal}" rx="8" />
+                <!-- Basket Head -->
+                <path d="M -25 -10 L 25 -10 L 20 15 L -20 15 Z" fill="${colors.metal}" />
+                <!-- Coffee Mound inside -->
+                <path d="M -15 -10 Q 0 -25 15 -10 Z" fill="${colors.coffee}" opacity="${pfFilledOp}" />
+                <!-- Spout -->
+                <rect x="-5" y="15" width="10" height="15" fill="${colors.metal}" />
+            </g>
+        `;
+
+        // Machine Drawing
+        let mx = 1400, my = 820; // Machine Center base
+        let grpX = 1250; // Group head extended to the left
+
+        // Shadow & Backplate
+        svgStr += `<rect x="${mx - 150}" y="${my - 20}" width="340" height="20" fill="${colors.shadow}" rx="10" />`;
+        svgStr += `<rect x="${mx - 150}" y="${my - 400}" width="280" height="400" fill="${colors.charcoalLight}" rx="20" />`;
+        
+        // Base / Drip Tray (Extended left for cup)
+        svgStr += `<rect x="${mx - 200}" y="${my - 40}" width="340" height="40" fill="${colors.metal}" rx="10" />`;
+        svgStr += `<rect x="${mx - 180}" y="${my - 40}" width="300" height="8" fill="${colors.metalDark}" />`; 
+        for(let g = -170; g < 110; g+= 12) {
+            svgStr += `<rect x="${mx + g}" y="${my - 40}" width="3" height="8" fill="${colors.charcoalLight}" opacity="0.4" />`;
+        }
+
+        // Main Body
+        svgStr += `<rect x="${mx - 150}" y="${my - 370}" width="280" height="280" fill="${colors.charcoal}" rx="20" />`;
+        
+        // Machine Indicator & Buttons
+        let machInd = machineActive ? colors.accent : colors.metalDark;
+        svgStr += `<circle cx="${mx + 70}" cy="${my - 280}" r="12" fill="${machInd}" />`;
+        svgStr += `<circle cx="${mx + 70}" cy="${my - 230}" r="8" fill="${colors.metalDark}" />`;
+        svgStr += `<circle cx="${mx + 70}" cy="${my - 190}" r="8" fill="${colors.metalDark}" />`;
+
+        // Pressure Gauge
+        svgStr += `
+            <g transform="translate(${mx - 40}, ${my - 250})">
+                <circle cx="0" cy="0" r="30" fill="${colors.metalDark}" />
+                <circle cx="0" cy="0" r="26" fill="${colors.cup}" />
+                <path d="M -15 0 A 15 15 0 0 1 15 0" stroke="${colors.metalDark}" stroke-width="4" fill="none" stroke-dasharray="2 4" />
+                <line x1="0" y1="0" x2="-14" y2="-14" stroke="${colors.accent}" stroke-width="3" stroke-linecap="round" transform="rotate(${gaugeRot})" />
+                <circle cx="0" cy="0" r="4" fill="${colors.charcoal}" />
+            </g>
+        `;
+
+        // Group Head Neck
+        svgStr += `<rect x="${grpX - 30}" y="${my - 300}" width="130" height="40" fill="${colors.metalDark}" />`;
+        
+        // Draw Portafilter HERE (behind front housing)
+        svgStr += portafilterSVG;
+
+        // Group Head Housing (Front)
+        svgStr += `<rect x="${grpX - 35}" y="${my - 300}" width="70" height="60" fill="${colors.metal}" rx="10" />`;
+
+        // Espresso Stream
+        let ex = grpX; 
+        let ey = 580; // Spout bottom
+        let cupY = 740; // Inside cup drop target
+        
+        if (flowStart > 0 && flowEnd < 1) {
+            let streamH = lerp(0, cupY - ey, flowStart); 
+            let streamY = ey;
+            if (flowEnd > 0) {
+                streamY = lerp(ey, cupY, flowEnd);
+                streamH = cupY - streamY;
+            }
+            svgStr += `
+                <rect x="${ex - 6}" y="${streamY}" width="4" height="${streamH}" fill="${colors.coffee}" rx="2" />
+                <rect x="${ex + 2}" y="${streamY}" width="4" height="${streamH}" fill="${colors.coffee}" rx="2" />
+            `;
+        }
+
+        // ==========================================
+        // STATION 4: COFFEE CUP (Slide Right to Serve)
+        // ==========================================
+        // The cup transforms its position completely based on `cupX`
+        svgStr += `<g transform="translate(${cupX}, 0)">`;
+        
+        // Shadow & Saucer
+        svgStr += `<ellipse cx="0" cy="820" rx="55" ry="12" fill="${colors.shadow}" />`;
+        svgStr += `<ellipse cx="0" cy="810" rx="65" ry="15" fill="${colors.cup}" />`;
+        svgStr += `<ellipse cx="0" cy="810" rx="40" ry="8" fill="${colors.shadow}" opacity="0.5" />`;
+
+        // Handle
+        svgStr += `<path d="M 40 730 C 80 730 80 770 40 780" fill="none" stroke="${colors.cup}" stroke-width="12" stroke-linecap="round" />`;
+
+        // Cup Body
+        svgStr += `<path d="M -45 720 L 45 720 C 45 800 -45 800 -45 720 Z" fill="${colors.cup}" />`;
+
+        // Liquid Masked Fill (Rises smoothly)
+        let liqMaxH = 65;
+        let currLiqH = lerp(0, liqMaxH, fillEase);
+        let currLiqY = 790 - currLiqH;
+        let liqW = lerp(20, 42, fillEase); // Surface width changes as cup tapers
+        
+        if (fillProg > 0) {
+            svgStr += `
+                <g clip-path="url(#cup-mask)">
+                    <rect x="-45" y="${currLiqY}" width="90" height="${currLiqH}" fill="${colors.coffee}" />
+                    <ellipse cx="0" cy="${currLiqY}" rx="${liqW}" ry="5" fill="#2E1C13" />
+                </g>
+            `;
+        }
+
+        // Cup Rim
+        svgStr += `<path d="M -45 720 L 45 720 C 45 800 -45 800 -45 720 Z" fill="none" stroke="${colors.platform}" stroke-width="3" />`;
+        svgStr += `<ellipse cx="0" cy="720" rx="45" ry="10" fill="none" stroke="${colors.cup}" stroke-width="5" />`;
+
+        // Rising Steam (Follows the cup)
+        if (steamOp > 0) {
+            for (let s = 0; s < 3; s++) {
+                let sY = lerp(700, 600, steamProg) - (s * 20);
+                let sX = (s * 15 - 15) + Math.sin(steamProg * Math.PI * 2 + s) * 10;
+                svgStr += `
+                    <path d="M ${sX} ${sY} Q ${sX + 15} ${sY - 20} ${sX} ${sY - 40} Q ${sX - 15} ${sY - 60} ${sX} ${sY - 80}" fill="none" stroke="${colors.cup}" stroke-width="4" stroke-linecap="round" opacity="${steamOp * 0.5}" />
+                `;
+            }
+        }
+        
+        svgStr += `</g>`; // End Cup Group
+
+        // Render to DOM
+        svg.innerHTML = svgStr;
+        requestAnimationFrame(render);
+    }
+
+    // Start Engine
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>

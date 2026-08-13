@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Director's Vision — Particle System: Fireworks (Organic Burst)</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #050816;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            width: 100vw;
+            height: 100vh;
+            object-fit: contain;
+            background-color: #050816;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="comp"></canvas>
+
+    <script>
+        const canvas = document.getElementById('comp');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        const W = 3840;
+        const H = 2160;
+        canvas.width = W;
+        canvas.height = H;
+
+        const BG_COLOR = '#050816';
+        
+        // Physics & Timeline Configuration
+        const LOOP_DURATION = 7500;
+        const LAUNCH_DURATION = 1500;
+        const PAUSE_DURATION = 150;
+        const EXPLOSION_TIME = LAUNCH_DURATION + PAUSE_DURATION;
+        
+        const ROCKET_START_Y = H * 0.92;
+        const ROCKET_END_Y = H * 0.38;
+        const ROCKET_X = W * 0.5;
+
+        let startTime = null;
+        let lastTime = null;
+        let currentCycle = -1;
+        let isExploded = false;
+        
+        let prng;
+        let trail = [];
+        let particles = [];
+        let particleTexture;
+
+        // Deterministic Pseudo-Random Number Generator
+        function mulberry32(a) {
+            return function() {
+                var t = a += 0x6D2B79F5;
+                t = Math.imul(t ^ t >>> 15, t | 1);
+                t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            }
+        }
+
+        // Create the glowing particle texture offscreen
+        function createParticleTexture() {
+            const c = document.createElement('canvas');
+            const size = 64; // Optimized for performance while retaining glow quality
+            c.width = size;
+            c.height = size;
+            const cx = c.getContext('2d');
+            const center = size / 2;
+            
+            const grad = cx.createRadialGradient(center, center, 0, center, center, center);
+            grad.addColorStop(0, '#FFFFFF');
+            grad.addColorStop(0.1, '#FFFFFF');
+            grad.addColorStop(0.25, '#FFD166');
+            grad.addColorStop(0.5, '#FF9F1C');
+            grad.addColorStop(1, 'rgba(255, 159, 28, 0)');
+            
+            cx.fillStyle = grad;
+            cx.beginPath();
+            cx.arc(center, center, center, 0, Math.PI * 2);
+            cx.fill();
+            
+            return c;
+        }
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function resetSystem() {
+            prng = mulberry32(1337); // Fixed seed for deterministic organic generation
+            trail = [];
+            particles = [];
+            isExploded = false;
+        }
+
+        function createExplosion() {
+            // 1. Primary Petals (Chrysanthemum effect)
+            // Creating clusters of particles that shoot out forming distinct arcs
+            const numPetals = 38 + Math.floor(prng() * 10); // 38 to 47 distinct petals
+            const petals = [];
+            
+            for (let i = 0; i < numPetals; i++) {
+                petals.push({
+                    angle: prng() * Math.PI * 2, // Random direction for the petal
+                    baseVel: 24 + prng() * 16,   // How far this petal shoots
+                    life: 3500 + prng() * 1200   // How long this petal lasts
+                });
+            }
+
+            // Populate particles along each petal
+            for (let i = 0; i < petals.length; i++) {
+                let petal = petals[i];
+                let particlesInPetal = 12 + Math.floor(prng() * 8); // 12 to 19 particles forming the stream
+                
+                for (let j = 0; j < particlesInPetal; j++) {
+                    // Spread particles linearly along the ray so they form a trail/stream
+                    let speedRatio = 0.4 + (0.6 * (j / particlesInPetal)); 
+                    let angleOffset = (prng() - 0.5) * 0.08; // Very tight angular grouping to maintain the petal shape
+                    let angle = petal.angle + angleOffset;
+                    
+                    let vel = petal.baseVel * speedRatio * (0.95 + prng() * 0.1);
+                    
+                    particles.push({
+                        x: ROCKET_X,
+                        y: ROCKET_END_Y,
+                        vx: Math.cos(angle) * vel,
+                        vy: Math.sin(angle) * vel,
+                        life: petal.life * speedRatio, // Inner/slower particles fade slightly earlier
+                        maxLife: petal.life,
+                        size: prng() * 0.4 + 0.3,
+                        history: [] // Stores trailing positions
+                    });
+                }
+            }
+
+            // 2. Secondary Core Scatter
+            // Fills the center slightly so it doesn't look completely hollow between petals
+            const numScatter = 120;
+            for (let i = 0; i < numScatter; i++) {
+                let angle = prng() * Math.PI * 2;
+                let vel = 4 + prng() * 16;
+                let life = 2000 + prng() * 1500;
+                
+                particles.push({
+                    x: ROCKET_X,
+                    y: ROCKET_END_Y,
+                    vx: Math.cos(angle) * vel,
+                    vy: Math.sin(angle) * vel,
+                    life: life,
+                    maxLife: life,
+                    size: prng() * 0.3 + 0.2,
+                    history: []
+                });
+            }
+        }
+
+        function drawLaunchAndTrail(elapsed, dt, isApex) {
+            let currentY = ROCKET_END_Y;
+            
+            if (!isApex) {
+                let progress = elapsed / LAUNCH_DURATION;
+                let ease = easeOutCubic(progress);
+                currentY = ROCKET_START_Y - (ROCKET_START_Y - ROCKET_END_Y) * ease;
+                trail.push({ x: ROCKET_X, y: currentY, age: 0 });
+            }
+
+            for (let i = trail.length - 1; i >= 0; i--) {
+                trail[i].age += dt;
+                if (trail[i].age > 300) trail.splice(i, 1);
+            }
+
+            for (let i = 0; i < trail.length; i++) {
+                let p = trail[i];
+                let alpha = Math.max(0, 1 - p.age / 300);
+                ctx.globalAlpha = alpha * 0.8;
+                let size = 0.2 + (alpha * 0.3); 
+                let r = 32 * size;
+                ctx.drawImage(particleTexture, p.x - r, p.y - r, r * 2, r * 2);
+            }
+
+            // Rocket Head
+            if (!isApex) {
+                ctx.globalAlpha = 1;
+                let r = 32 * 0.6;
+                ctx.drawImage(particleTexture, ROCKET_X - r, currentY - r, r * 2, r * 2);
+            } else {
+                // Apex flash before explosion
+                let pauseProgress = (elapsed - LAUNCH_DURATION) / PAUSE_DURATION;
+                ctx.globalAlpha = 1;
+                let size = 0.6 + pauseProgress * 1.5; 
+                let r = 32 * size;
+                ctx.drawImage(particleTexture, ROCKET_X - r, ROCKET_END_Y - r, r * 2, r * 2);
+            }
+        }
+
+        function updateAndDrawParticles(dt) {
+            let timeScale = dt / 16.6667;
+            
+            // Drag smoothly reduces velocity to create the 'bloom' effect
+            let drag = Math.pow(0.935, timeScale);
+            // Gravity pulls particles down, turning straight rays into arcs
+            let gravity = 0.25 * timeScale;
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                let p = particles[i];
+                
+                // Track history for trails
+                p.history.push({ x: p.x, y: p.y });
+                if (p.history.length > 5) {
+                    p.history.shift();
+                }
+
+                // Physics update
+                p.vx *= drag;
+                p.vy *= drag;
+                p.vy += gravity;
+
+                p.x += p.vx * timeScale;
+                p.y += p.vy * timeScale;
+                p.life -= dt;
+
+                if (p.life <= 0) {
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                // Fade calculation
+                let lifeRatio = Math.max(0, p.life / p.maxLife);
+                let visualAlpha = Math.pow(Math.min(1, lifeRatio * 2.0), 1.5);
+                let currentSize = p.size * (0.3 + 0.7 * visualAlpha);
+
+                // Draw trailing history
+                for (let h = 0; h < p.history.length; h++) {
+                    let hp = p.history[h];
+                    let hRatio = h / p.history.length;
+                    
+                    ctx.globalAlpha = visualAlpha * hRatio * 0.5; // Trails are more transparent
+                    let hSize = currentSize * (0.4 + 0.6 * hRatio); // Trails taper off
+                    let hr = 32 * hSize;
+                    
+                    ctx.drawImage(particleTexture, hp.x - hr, hp.y - hr, hr * 2, hr * 2);
+                }
+                
+                // Draw particle head
+                ctx.globalAlpha = visualAlpha;
+                let r = 32 * currentSize;
+                ctx.drawImage(particleTexture, p.x - r, p.y - r, r * 2, r * 2);
+            }
+        }
+
+        function render(now) {
+            if (!startTime) {
+                startTime = now;
+                lastTime = now;
+            }
+            
+            let dt = now - lastTime;
+            lastTime = now;
+            
+            if (dt > 100) dt = 16.6667; 
+            
+            let elapsed = (now - startTime) % LOOP_DURATION;
+            let cycle = Math.floor((now - startTime) / LOOP_DURATION);
+
+            if (cycle !== currentCycle) {
+                currentCycle = cycle;
+                resetSystem();
+            }
+
+            // Clear Background
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.fillStyle = BG_COLOR;
+            ctx.fillRect(0, 0, W, H);
+            
+            // Additive blending for glows
+            ctx.globalCompositeOperation = 'lighter';
+
+            if (elapsed < LAUNCH_DURATION) {
+                drawLaunchAndTrail(elapsed, dt, false);
+            } else if (elapsed < EXPLOSION_TIME) {
+                drawLaunchAndTrail(elapsed, dt, true);
+            } else {
+                if (!isExploded) {
+                    createExplosion();
+                    isExploded = true;
+                }
+                
+                // Continue fading rocket trail
+                for (let i = trail.length - 1; i >= 0; i--) {
+                    trail[i].age += dt;
+                    if (trail[i].age > 300) trail.splice(i, 1);
+                }
+                for (let i = 0; i < trail.length; i++) {
+                    let p = trail[i];
+                    let alpha = Math.max(0, 1 - p.age / 300);
+                    ctx.globalAlpha = alpha * 0.8;
+                    let size = 0.2 + (alpha * 0.3);
+                    let r = 32 * size;
+                    ctx.drawImage(particleTexture, p.x - r, p.y - r, r * 2, r * 2);
+                }
+
+                // Simulate and draw explosion petals
+                updateAndDrawParticles(dt);
+            }
+
+            requestAnimationFrame(render);
+        }
+
+        function init() {
+            particleTexture = createParticleTexture();
+            requestAnimationFrame(render);
+        }
+
+        init();
+    </script>
+</body>
+</html>

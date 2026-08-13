@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Bauhaus Abstract Mechanical Clock</title>
+    <style>
+        /* 
+         * GLOBAL SETUP
+         * Fixed 3840x2160 composition for Motion Studio rendering.
+         */
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #canvas {
+            width: 3840px;
+            height: 2160px;
+            background-color: #F4F1E8; /* Clean Bauhaus Off-White */
+            position: relative;
+            overflow: hidden;
+            transform-origin: center center;
+        }
+
+        /* 
+         * SVG LAYER FOR PURE PRIMITIVE GEOMETRY
+         */
+        #clock-svg {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 3840px;
+            height: 2160px;
+            overflow: visible;
+        }
+
+        /* Primitive Styles */
+        .bauhaus-circle {
+            fill: none;
+            stroke: #111111;
+        }
+
+        .bauhaus-circle-filled {
+            fill: #111111;
+        }
+
+        .bauhaus-arc-red {
+            fill: none;
+            stroke: #D62828;
+            stroke-linecap: square;
+        }
+
+        .bauhaus-arc-yellow {
+            fill: none;
+            stroke: #F2C230;
+            stroke-linecap: square;
+        }
+
+        .bauhaus-arc-blue {
+            fill: none;
+            stroke: #2455C3;
+            stroke-linecap: square;
+        }
+
+        .bauhaus-line {
+            stroke: #111111;
+            stroke-linecap: square;
+        }
+
+        .bauhaus-hand-min {
+            stroke: #111111;
+            stroke-width: 14;
+            stroke-linecap: square;
+        }
+
+        .bauhaus-hand-hour {
+            stroke: #D62828;
+            stroke-width: 30;
+            stroke-linecap: square;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div id="canvas">
+        <svg id="clock-svg" viewBox="0 0 3840 2160">
+            
+            <!-- ================= STRUCTURAL GRID & GUIDES ================= -->
+            <g id="group-grid">
+                <line x1="1920" y1="150" x2="1920" y2="2010" stroke="#111111" stroke-width="4" stroke-dasharray="10 30" opacity="0.2"/>
+                <line x1="840" y1="1080" x2="3000" y2="1080" stroke="#111111" stroke-width="4" stroke-dasharray="10 30" opacity="0.2"/>
+            </g>
+
+            <!-- ================= CENTRAL CLOCK MACHINE ================= -->
+            <g id="clock-machine" transform="translate(1920, 1080)">
+                
+                <!-- 1. OUTER STATIC DIAL -->
+                <g id="ring-outer">
+                    <!-- Main bounding ring -->
+                    <circle cx="0" cy="0" r="750" class="bauhaus-circle" stroke-width="12"/>
+                    <!-- Dotted inner boundary -->
+                    <circle cx="0" cy="0" r="710" class="bauhaus-circle" stroke-width="6" stroke-dasharray="8 24"/>
+                    
+                    <!-- Fixed Minimal Markers -->
+                    <line x1="0" y1="-750" x2="0" y2="-690" class="bauhaus-line" stroke-width="20"/>
+                    <line x1="0" y1="750" x2="0" y2="690" class="bauhaus-line" stroke-width="20"/>
+                    <line x1="-750" y1="0" x2="-690" y2="0" class="bauhaus-line" stroke-width="20"/>
+                    <line x1="750" y1="0" x2="690" y2="0" class="bauhaus-line" stroke-width="20"/>
+
+                    <line x1="530" y1="-530" x2="495" y2="-495" class="bauhaus-line" stroke-width="10"/>
+                    <line x1="-530" y1="-530" x2="-495" y2="-495" class="bauhaus-line" stroke-width="10"/>
+                    <line x1="530" y1="530" x2="495" y2="495" class="bauhaus-line" stroke-width="10"/>
+                    <line x1="-530" y1="530" x2="-495" y2="495" class="bauhaus-line" stroke-width="10"/>
+                </g>
+
+                <!-- 2. MID RING (Rotating clockwise) -->
+                <g id="ring-mid">
+                    <circle cx="0" cy="0" r="550" class="bauhaus-circle" stroke-width="4"/>
+                    <!-- Yellow Thick Arc (Circumference ~3455) -->
+                    <circle cx="0" cy="0" r="550" class="bauhaus-arc-yellow" stroke-width="50" stroke-dasharray="1000 3455" stroke-dashoffset="0" transform="rotate(-45)"/>
+                    
+                    <!-- Orbiting Elements attached to Mid Ring -->
+                    <circle cx="0" cy="-550" r="30" class="bauhaus-circle-filled"/>
+                    <line x1="-50" y1="550" x2="50" y2="550" class="bauhaus-line" stroke-width="15"/>
+                    <line x1="550" y1="-30" x2="550" y2="30" class="bauhaus-line" stroke-width="15"/>
+                </g>
+
+                <!-- 3. INNER RING (Rotating counter-clockwise) -->
+                <g id="ring-inner">
+                    <circle cx="0" cy="0" r="380" class="bauhaus-circle" stroke-width="6" stroke-dasharray="15 45"/>
+                    <!-- Red Thick Arc (Circumference ~2387) -->
+                    <circle cx="0" cy="0" r="380" class="bauhaus-arc-red" stroke-width="35" stroke-dasharray="600 2387" stroke-dashoffset="0" transform="rotate(120)"/>
+                    
+                    <!-- Orbiting Mechanical Markers -->
+                    <circle cx="380" cy="0" r="18" class="bauhaus-circle-filled"/>
+                    <circle cx="-380" cy="0" r="18" class="bauhaus-circle-filled"/>
+                    <line x1="0" y1="-350" x2="0" y2="-410" class="bauhaus-line" stroke-width="12"/>
+                </g>
+
+                <!-- 4. CORE RING (Semicircle module, rotating rapidly) -->
+                <g id="ring-core">
+                    <!-- Blue Semicircle (Circumference ~1256, dasharray exactly half) -->
+                    <circle cx="0" cy="0" r="200" class="bauhaus-arc-blue" stroke-width="60" stroke-dasharray="628 1256" stroke-dashoffset="0" transform="rotate(-90)"/>
+                    <!-- Internal core ring constraint -->
+                    <circle cx="0" cy="0" r="170" class="bauhaus-circle" stroke-width="4"/>
+                </g>
+
+                <!-- 5. CLOCK HANDS & PIVOT -->
+                <g id="group-hands">
+                    <!-- Hour Hand -->
+                    <line id="hand-hour" x1="0" y1="0" x2="0" y2="-420" class="bauhaus-hand-hour"/>
+                    <!-- Minute Hand -->
+                    <line id="hand-min" x1="0" y1="0" x2="0" y2="-660" class="bauhaus-hand-min"/>
+                    
+                    <!-- Center Pivot -->
+                    <circle cx="0" cy="0" r="45" class="bauhaus-circle-filled"/>
+                    <circle cx="0" cy="0" r="15" fill="#F4F1E8"/>
+                </g>
+
+            </g>
+        </svg>
+    </div>
+
+    <script>
+        /**
+         * EASING FUNCTIONS
+         */
+        const easings = {
+            linear: x => x,
+            easeInOutCubic: x => x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2,
+            easeInOutQuart: x => x < 0.5 ? 8 * x * x * x * x : 1 - Math.pow(-2 * x + 2, 4) / 2
+        };
+
+        function evaluateTrack(track, t, defaultValue) {
+            if (!track || track.length === 0) return defaultValue;
+            if (t <= track[0].t) return track[0].v;
+            if (t >= track[track.length - 1].t) return track[track.length - 1].v;
+
+            for (let i = 0; i < track.length - 1; i++) {
+                if (t >= track[i].t && t < track[i + 1].t) {
+                    const kf1 = track[i];
+                    const kf2 = track[i + 1];
+                    const progress = (t - kf1.t) / (kf2.t - kf1.t);
+                    let eased = progress;
+                    if (kf2.e === 'easeInOutCubic') eased = easings.easeInOutCubic(progress);
+                    else if (kf2.e === 'easeInOutQuart') eased = easings.easeInOutQuart(progress);
+                    return kf1.v + (kf2.v - kf1.v) * eased;
+                }
+            }
+            return defaultValue;
+        }
+
+        /**
+         * TIMELINE & CHOREOGRAPHY TRACKS (Total duration: 10.0 seconds, Seamless Loop)
+         */
+        const config = [
+            // --- ASSEMBLY & RESET TRANSFORMS ---
+            {
+                id: 'clock-machine',
+                tracks: {
+                    scale: [ {t:0,v:0}, {t:1.5,v:1,e:'easeInOutQuart'}, {t:8.5,v:1}, {t:10.0,v:0,e:'easeInOutQuart'} ],
+                    rot:   [ {t:0,v:-45}, {t:1.5,v:0,e:'easeInOutQuart'}, {t:8.5,v:0}, {t:10.0,v:45,e:'easeInOutQuart'} ]
+                }
+            },
+            {
+                id: 'group-grid',
+                tracks: {
+                    opacity: [ {t:0,v:0}, {t:1.5,v:1,e:'easeInOutCubic'}, {t:8.5,v:1}, {t:10.0,v:0,e:'easeInOutCubic'} ]
+                }
+            }
+        ];
+
+        /**
+         * RENDER LOOP
+         */
+        let startTime = null;
+
+        function render(timestamp) {
+            if (!startTime) startTime = timestamp;
+            let elapsedTime = (timestamp - startTime) / 1000;
+            let t = elapsedTime % 10.0; // 10 second loop cycle
+
+            // 1. Process Global Assembly Transforms
+            config.forEach(conf => {
+                const el = document.getElementById(conf.id);
+                if (!el) return;
+
+                let scale = conf.tracks.scale ? evaluateTrack(conf.tracks.scale, t, 1) : 1;
+                let rot = conf.tracks.rot ? evaluateTrack(conf.tracks.rot, t, 0) : 0;
+                let opacity = conf.tracks.opacity ? evaluateTrack(conf.tracks.opacity, t, 1) : null;
+
+                if (conf.id === 'clock-machine') {
+                    el.style.transform = `translate(1920px, 1080px) scale(${scale}) rotate(${rot}deg)`;
+                } else if (conf.id === 'group-grid') {
+                    el.style.opacity = opacity;
+                }
+            });
+
+            // 2. Continuous & Seamless Timing Logic
+            let minuteAngle = 0;
+            
+            if (t < 1.5) {
+                // Assembly phase: static
+                minuteAngle = 0;
+            } else if (t >= 1.5 && t < 2.0) {
+                // Awakening phase: Smooth acceleration into the first tick
+                let p = (t - 1.5) / 0.5;
+                minuteAngle = easings.easeInOutCubic(p) * 15; 
+            } else if (t >= 2.0 && t < 7.0) {
+                // Normal running speed
+                let p = (t - 2.0) / 5.0;
+                minuteAngle = 15 + (p * 360);
+            } else if (t >= 7.0 && t < 8.5) {
+                // Emphasis phase: accelerated sweep (extra 540 degrees)
+                let p = (t - 7.0) / 1.5;
+                minuteAngle = 375 + (easings.easeInOutCubic(p) * 540);
+            } else {
+                // Reset phase: smooth deceleration to exactly 1080 (3 full rotations)
+                let p = (t - 8.5) / 1.5;
+                minuteAngle = 915 + (easings.easeInOutCubic(p) * 165);
+            }
+
+            // --- MATHEMATICAL RELATIONSHIPS ---
+            
+            // Hour hand is exactly 1/12th of minute hand
+            let hourAngle = minuteAngle / 12;
+
+            // Concentric rings drive off the minute hand speed at specific gear ratios
+            let ringMidAngle = minuteAngle * 0.6;       // Rotates clockwise slightly slower
+            let ringInnerAngle = minuteAngle * -0.8;    // Rotates counter-clockwise
+            let ringCoreAngle = minuteAngle * 2.5;      // Spins rapidly
+
+            // Apply rotations
+            document.getElementById('hand-min').style.transform = `rotate(${minuteAngle}deg)`;
+            document.getElementById('hand-hour').style.transform = `rotate(${hourAngle}deg)`;
+            
+            document.getElementById('ring-mid').style.transform = `rotate(${ringMidAngle}deg)`;
+            document.getElementById('ring-inner').style.transform = `rotate(${ringInnerAngle}deg)`;
+            document.getElementById('ring-core').style.transform = `rotate(${ringCoreAngle}deg)`;
+
+            // Loop forever, fully deterministic
+            requestAnimationFrame(render);
+        }
+
+        // Start Animation Loop
+        requestAnimationFrame(render);
+
+    </script>
+</body>
+</html>

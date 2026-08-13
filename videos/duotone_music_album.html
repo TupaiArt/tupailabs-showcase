@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOICE//02 - Fictional Album Cover</title>
+    <style>
+        /* CSS Reset & Setup Display Frame */
+        *, *::before, *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body, html {
+            width: 100%;
+            height: 100%;
+            background-color: #050507;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+        }
+
+        /* Responsive Square Album Frame */
+        .album-wrapper {
+            width: 90vh;
+            height: 90vh;
+            max-width: 90vw;
+            max-height: 90vw;
+            position: relative;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.9);
+            aspect-ratio: 1 / 1;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+            background-color: #0D0E12; /* Color A */
+        }
+    </style>
+</head>
+<body>
+
+<div class="album-wrapper">
+    <canvas id="albumCanvas" width="3000" height="3000"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('albumCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // ==========================================
+    // 1. STRICT TWO-COLOR SYSTEM DEFINITION
+    // ==========================================
+    // Color A: Background (Deep Obsidian Ink)
+    // Color B: Graphic / Foreground (Vibrant Flame Red)
+    const COLOR_A = '#0D0E12';
+    const COLOR_B = '#FF3B24';
+
+    // ==========================================
+    // 2. ANIMATION TIMELINE & EASING UTILITIES
+    // ==========================================
+    const DURATION = 10.0; // Seconds per seamless loop
+    const FPS = 30;
+
+    function lerp(start, end, t) {
+        return start + (end - start) * t;
+    }
+
+    function easeOutCubic(x) {
+        return 1 - Math.pow(1 - x, 3);
+    }
+
+    function easeInOutCubic(x) {
+        return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+    }
+
+    function easeInOutSine(x) {
+        return -(Math.cos(Math.PI * x) - 1) / 2;
+    }
+
+    // ==========================================
+    // 3. PROCEDURAL MICROPHONE GEOMETRY
+    // ==========================================
+    // Draws a highly stylized vintage studio condenser mic using Color B & Color A cutouts
+    function drawMicrophone(cx, cy, scale, rotationDeg) {
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.rotate((rotationDeg * Math.PI) / 180);
+        ctx.scale(scale, scale);
+
+        // --- A. SHOCKMOUNT / SWIVEL YOKE (Behind Body) ---
+        ctx.fillStyle = COLOR_B;
+        
+        // Outer U-Bracket
+        ctx.beginPath();
+        ctx.arc(0, 220, 220, 0.1 * Math.PI, 0.9 * Math.PI, false);
+        ctx.lineWidth = 32;
+        ctx.strokeStyle = COLOR_B;
+        ctx.stroke();
+
+        // Stand Rod Extension
+        ctx.fillRect(-16, 420, 32, 450);
+        // Base Connector Ring
+        ctx.fillRect(-45, 410, 90, 30);
+
+        // Side Mount Knobs
+        ctx.fillRect(-240, 200, 35, 60);
+        ctx.fillRect(205, 200, 35, 60);
+
+        // --- B. MAIN BODY TUBE ---
+        // Tapered Cylinder
+        ctx.beginPath();
+        ctx.moveTo(-110, -50);
+        ctx.lineTo(110, -50);
+        ctx.lineTo(95, 320);
+        ctx.lineTo(-95, 320);
+        ctx.closePath();
+        ctx.fill();
+
+        // Body Cutout Accents (Negative Space in Color A)
+        ctx.fillStyle = COLOR_A;
+        ctx.fillRect(-70, 280, 140, 12);
+        
+        // Brand Badge Plate (Negative Space)
+        ctx.fillRect(-35, 40, 70, 90);
+        ctx.fillStyle = COLOR_B;
+        // Geometric Emblem inside badge
+        ctx.beginPath();
+        ctx.arc(0, 85, 18, 0, Math.PI * 2);
+        ctx.fill();
+
+        // --- C. NECK COLLAR RINGS ---
+        ctx.fillStyle = COLOR_B;
+        ctx.fillRect(-120, -85, 240, 35);
+        ctx.fillStyle = COLOR_A;
+        ctx.fillRect(-125, -68, 250, 6); // Ring separator
+
+        // --- D. HEAD CAPSULE (GRILL) ---
+        ctx.fillStyle = COLOR_B;
+
+        // Outer Capsule Shape
+        ctx.beginPath();
+        ctx.moveTo(-135, -90);
+        ctx.lineTo(135, -90);
+        ctx.lineTo(135, -340);
+        ctx.arc(0, -340, 135, 0, Math.PI, true);
+        ctx.closePath();
+        ctx.fill();
+
+        // Capsule Outer Frame Rim
+        ctx.strokeStyle = COLOR_B;
+        ctx.lineWidth = 14;
+        ctx.stroke();
+
+        // --- E. NEGATIVE SPACE GRILLE PATTERN ---
+        ctx.fillStyle = COLOR_A;
+        
+        // Horizontal Slit Array (Grille Slits)
+        const slitYStart = -430;
+        const slitYEnd = -130;
+        const slitSpacing = 28;
+
+        for (let y = slitYStart; y <= slitYEnd; y += slitSpacing) {
+            // Calculate width based on capsule dome curvature
+            let progress = (y - slitYStart) / (slitYEnd - slitYStart);
+            let halfW = 105 * Math.sin(Math.PI * Math.pow(progress, 0.75));
+            if (halfW > 10) {
+                ctx.fillRect(-halfW, y, halfW * 2, 8);
+            }
+        }
+
+        // Center Horizontal Capsule Band
+        ctx.fillStyle = COLOR_B;
+        ctx.fillRect(-142, -260, 284, 24);
+        ctx.fillStyle = COLOR_A;
+        ctx.fillRect(-142, -252, 284, 8); // Inner accent line
+
+        // Vertical Center Support Ribbon (Negative Space)
+        ctx.fillRect(-8, -460, 16, 360);
+
+        ctx.restore();
+    }
+
+    // ==========================================
+    // 4. MAIN RENDER LOOP (requestAnimationFrame)
+    // ==========================================
+    let startTime = null;
+
+    function render(timestamp) {
+        if (!startTime) startTime = timestamp;
+        let elapsed = (timestamp - startTime) / 1000;
+        let t = elapsed % DURATION; // Deterministic time loop [0.0 -> 10.0]
+
+        // --- ANIMATION CHOREOGRAPHY CALCULATIONS ---
+        let textOffsetX = 0;
+        let textOffsetY = 0;
+        let micScale = 1.0;
+        let micRotation = 0.0;
+
+        if (t >= 0.0 && t < 1.2) {
+            // Stage 1: Typography Offset Entry (0.0s - 1.2s)
+            let p = t / 1.2;
+            let eased = easeOutCubic(p);
+            textOffsetX = lerp(90, 0, eased);
+            textOffsetY = lerp(45, 0, eased);
+            micScale = 0.94;
+            micRotation = -4.0;
+        } 
+        else if (t >= 1.2 && t < 2.2) {
+            // Stage 2: Microphone Reveal & Settle (1.2s - 2.2s)
+            let p = (t - 1.2) / 1.0;
+            let eased = easeOutCubic(p);
+            textOffsetX = 0;
+            textOffsetY = 0;
+            micScale = lerp(0.94, 1.0, eased);
+            micRotation = lerp(-4.0, 0.0, eased);
+        } 
+        else if (t >= 2.2 && t < 5.5) {
+            // Stage 3: Main Showcase Subtle Rotation Sway (2.2s - 5.5s)
+            let p = (t - 2.2) / 3.3;
+            textOffsetX = 0;
+            textOffsetY = 0;
+            micScale = 1.0;
+            // Smooth pendulum sway: 0° -> +4° -> -2° -> 0°
+            micRotation = 4.0 * Math.sin(p * Math.PI * 2);
+        } 
+        else if (t >= 5.5 && t < 7.0) {
+            // Stage 4: Print Offset Registration Shift Accent (5.5s - 7.0s)
+            let p = (t - 5.5) / 1.5;
+            let pulse = Math.sin(p * Math.PI); // Smooth 0 -> 1 -> 0
+            textOffsetX = 35.0 * pulse;
+            textOffsetY = -18.0 * pulse;
+            micScale = 1.0;
+            micRotation = 1.5 * pulse;
+        } 
+        else if (t >= 7.0 && t < 9.0) {
+            // Stage 5: Final Composition Hold (7.0s - 9.0s)
+            let p = (t - 7.0) / 2.0;
+            textOffsetX = 0;
+            textOffsetY = 0;
+            micScale = 1.0;
+            micRotation = 0.5 * Math.sin(p * Math.PI);
+        } 
+        else {
+            // Stage 6: Seamless Loop Transition Reset (9.0s - 10.0s)
+            let p = (t - 9.0) / 1.0;
+            let eased = easeInOutCubic(p);
+            // Returns smoothly to t=0 initial state values
+            textOffsetX = lerp(0, 90, eased);
+            textOffsetY = lerp(0, 45, eased);
+            micScale = lerp(1.0, 0.94, eased);
+            micRotation = lerp(0, -4.0, eased);
+        }
+
+        // ==========================================
+        // 5. CANVAS DRAWING (STRICT LAYER ORDER)
+        // ==========================================
+
+        // LAYER 1: BACKGROUND FIELD (Color A)
+        ctx.fillStyle = COLOR_A;
+        ctx.fillRect(0, 0, 3000, 3000);
+
+        // LAYER 2: LARGE GRAPHIC SHAPES (Color B)
+        ctx.fillStyle = COLOR_B;
+
+        // Oversized Off-Center Circle
+        ctx.beginPath();
+        ctx.arc(1950, 1400, 820, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Massive Background Numeral '02'
+        ctx.font = '900 820px "Arial Black", "Helvetica Neue", sans-serif';
+        ctx.fillText('02', 180, 2750);
+
+        // Vertical Alignment Rule Line & Diagonal Accent Lines
+        ctx.fillRect(220, 0, 6, 3000);
+        ctx.fillRect(2820, 0, 6, 3000);
+
+        ctx.beginPath();
+        ctx.moveTo(1400, 200);
+        ctx.lineTo(2800, 200);
+        ctx.lineWidth = 10;
+        ctx.strokeStyle = COLOR_B;
+        ctx.stroke();
+
+        // LAYER 3: OVERSIZED TYPOGRAPHY (VOICE//02)
+        // Print Registration Offset Effect (Primary Offset Shape + Main Shape)
+        ctx.font = '900 330px "Arial Black", "Helvetica Neue", sans-serif';
+
+        // Offset Duplicate Pass (Negative Space Cutout / Offset Shadow)
+        if (Math.abs(textOffsetX) > 0.5 || Math.abs(textOffsetY) > 0.5) {
+            ctx.fillStyle = COLOR_A;
+            ctx.fillText('VOICE//02', 240 + textOffsetX, 920 + textOffsetY);
+        }
+
+        // Main Headline Pass
+        ctx.fillStyle = COLOR_B;
+        ctx.fillText('VOICE//02', 240, 920);
+
+        // LAYER 4: HERO OBJECT (Microphone)
+        // Positioned at ~58% Canvas Width (Asymmetrical Editorial Balance)
+        drawMicrophone(1750, 1420, micScale, micRotation);
+
+        // LAYER 5: SECONDARY GRAPHICS & EDITORIAL COPY
+        ctx.fillStyle = COLOR_B;
+
+        // Artist Name "NOVA"
+        ctx.font = '900 160px "Arial Black", "Helvetica Neue", sans-serif';
+        ctx.fillText('NOVA', 2050, 2680);
+
+        // Top Metadata Block
+        ctx.font = '700 40px "Helvetica Neue", Arial, sans-serif';
+        ctx.fillText('A COLLECTION OF SOUND', 250, 340);
+
+        ctx.font = '500 32px "Helvetica Neue", Arial, sans-serif';
+        ctx.fillText('STUDIO SERIES // LIMITED EDITION', 250, 400);
+
+        // Lower Right Metadata
+        ctx.font = '700 36px "Helvetica Neue", Arial, sans-serif';
+        ctx.fillText('SIDE A', 2050, 2450);
+        ctx.font = '400 28px "Helvetica Neue", Arial, sans-serif';
+        ctx.fillText('STEREO [24-BIT / 96KHZ]', 2050, 2495);
+
+        // Crop Marks / Corner Crosshairs (Editorial Detail)
+        const drawCrosshair = (x, y) => {
+            ctx.fillRect(x - 25, y - 3, 50, 6);
+            ctx.fillRect(x - 3, y - 25, 6, 50);
+        };
+        drawCrosshair(120, 120);
+        drawCrosshair(2880, 120);
+        drawCrosshair(120, 2880);
+        drawCrosshair(2880, 2880);
+
+        requestAnimationFrame(render);
+    }
+
+    // Start Animation Engine
+    requestAnimationFrame(render);
+</script>
+</body>
+</html>
