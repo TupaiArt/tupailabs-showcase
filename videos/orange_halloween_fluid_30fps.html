@@ -1,0 +1,161 @@
+<!--METADATA
+{
+  "filename_base": "orange_halloween_fluid_30fps",
+  "title": "Orange Halloween Fluid Background",
+  "description": "Seamless animated full cinematic fluid gradient background in spooky orange Halloween palette, rendered in 4K at 30fps.",
+  "keywords": ["orange", "halloween", "pumpkin", "spooky", "cinematic", "fluid", "gradient", "background", "30fps"],
+  "aspect_ratio": "16:9",
+  "fps": 30,
+  "duration_seconds": 10,
+  "category": "Abstract Background",
+  "category_secondary": "Gradient"
+}
+METADATA-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orange Halloween Full Background - 30 FPS</title>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 3840px;
+            height: 2160px;
+            background-color: #0f0005; 
+            overflow: hidden;
+            position: absolute;
+        }
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 3840px;
+            height: 2160px;
+            display: block;
+            background-color: #0f0005;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            try {
+                const canvas = document.getElementById('canvas');
+                const WIDTH = 3840;
+                const HEIGHT = 2160;
+
+                const scene = new THREE.Scene();
+                const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+                camera.position.z = 0.5;
+
+                const renderer = new THREE.WebGLRenderer({ 
+                    canvas: canvas, 
+                    alpha: false, 
+                    antialias: false, 
+                    powerPreference: "high-performance"
+                });
+                
+                renderer.setSize(WIDTH, HEIGHT, false);
+                renderer.setPixelRatio(1); 
+                renderer.setClearColor(new THREE.Color(0x0f0005), 1.0);
+
+                const uniforms = {
+                    u_time: { value: 0 },
+                    u_resolution: { value: new THREE.Vector2(WIDTH, HEIGHT) },
+                    u_wave_scale: { value: 1.0 },
+                    u_variation: { value: 1.0 },
+                    u_vignette: { value: 1.2 }
+                };
+
+                const vertexShader = `
+                    precision highp float;
+                    void main() {
+                        gl_Position = vec4(position.xy, 0.0, 1.0);
+                    }
+                `;
+
+                const fragmentShader = `
+                    precision highp float;
+                    
+                    uniform float u_time;
+                    uniform vec2 u_resolution;
+                    uniform float u_wave_scale;
+                    uniform float u_variation;
+                    uniform float u_vignette;
+
+                    void main() {
+                        vec2 uv = gl_FragCoord.xy / u_resolution.xy;
+                        vec2 centered_uv = uv * 2.0 - 1.0;
+                        centered_uv.x *= u_resolution.x / u_resolution.y;
+
+                        float time = u_time * 0.7 * u_variation;
+
+                        // Membuat pergerakan fluid / gelombang penuh dengan detail ekstra untuk efek 'asap/api'
+                        float wave1 = sin(centered_uv.x * 1.5 * u_wave_scale + time) * 0.5;
+                        float wave2 = cos(centered_uv.x * 2.5 * u_wave_scale - time * 0.9) * 0.35;
+                        float wave3 = sin(centered_uv.x * 0.8 + centered_uv.y * 1.8 + time * 1.5) * 0.25;
+                        float wave4 = cos(centered_uv.x * 4.0 - time * 2.0) * 0.1; // riak kecil
+                        
+                        // Kalkulasi medan bentuk gelombang
+                        float field = centered_uv.y + wave1 + wave2 * 0.5 + wave3 + wave4;
+
+                        // Palet Warna Orange Halloween Spooky
+                        vec3 colorDark = vec3(0.06, 0.0, 0.03);   // Spooky dark void (hampir hitam kemerahan)
+                        vec3 colorMid = vec3(0.85, 0.35, 0.0);    // Pumpkin Orange
+                        vec3 colorBright = vec3(1.0, 0.7, 0.05);  // Glowing Jack-o'-lantern Yellow / Fire
+
+                        // Headless Safe Math (SwiftShader compliant) - Inverted smoothstep
+                        float mix1 = 1.0 - smoothstep(-0.3, 1.4, field);
+                        vec3 finalColor = mix(colorDark, colorMid, mix1);
+                        
+                        float mix2 = 1.0 - smoothstep(-1.5, 0.2, field);
+                        finalColor = mix(finalColor, colorBright, mix2);
+
+                        // Menambahkan ambient light yang bergerak (efek pendaran api/glow)
+                        float ambientSweep = sin(centered_uv.x * 3.0 + time * 2.5) * 0.5 + 0.5;
+                        float flicker = sin(time * 10.0) * 0.05 + 0.95; // Subtle api flicker
+                        finalColor += colorMid * ambientSweep * 0.25 * flicker;
+
+                        // Highlight lembut ekstra di bagian bawah (Basis nyala api/cahaya bawah)
+                        float bottomGlow = 1.0 - smoothstep(0.0, 0.6, uv.y);
+                        finalColor += colorBright * bottomGlow * 0.3;
+
+                        // Cinematic Vignette Effect (Dibuat sedikit lebih gelap untuk kesan horor/spooky)
+                        float vignetteRadius = length(uv - 0.5);
+                        float vignette = 1.0 - smoothstep(0.2, 1.2, vignetteRadius * u_vignette);
+                        
+                        gl_FragColor = vec4(finalColor * vignette, 1.0);
+                    }
+                `;
+
+                const material = new THREE.ShaderMaterial({
+                    vertexShader,
+                    fragmentShader,
+                    uniforms,
+                    depthWrite: false,
+                    depthTest: false
+                });
+
+                const geometry = new THREE.PlaneGeometry(2, 2);
+                scene.add(new THREE.Mesh(geometry, material));
+
+                function animate(time) {
+                    uniforms.u_time.value = (time || 0) * 0.001; 
+                    renderer.render(scene, camera);
+                    requestAnimationFrame(animate);
+                }
+
+                requestAnimationFrame(animate);
+
+            } catch (e) {
+                console.error("ThreeJS Setup Error:", e);
+            }
+        });
+    </script>
+</body>
+</html>
