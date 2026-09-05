@@ -1,0 +1,227 @@
+<!--METADATA
+{
+  "filename_base": "3d_saturn_orbit_cdn",
+  "title": "3D Saturn Orbit with Moons",
+  "description": "A precise 4K 3D animation of Saturn, its rings, and orbiting moons using time-based trigonometry and CDN-ready texture loaders.",
+  "keywords": ["saturn", "planet", "orbit", "space", "3d", "threejs", "rings", "moons"],
+  "aspect_ratio": "16:9",
+  "fps": 60,
+  "duration_seconds": 15,
+  "category": "3D_ANIMATION",
+  "category_secondary": "BACKGROUNDS"
+}
+METADATA-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>3D Saturn Orbit</title>
+<style>
+  * { 
+    margin: 0; 
+    padding: 0; 
+    box-sizing: border-box; 
+  }
+  
+  body {
+    background-color: transparent;
+    overflow: hidden;
+  }
+
+  #render-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 3840px;
+    height: 2160px;
+    overflow: hidden;
+  }
+</style>
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<div id="render-container"></div>
+
+<script type="module">
+  import * as THREE from 'three';
+
+  // --- SCENE & RENDERER ---
+  const container = document.getElementById('render-container');
+  const WIDTH = 3840;
+  const HEIGHT = 2160;
+  
+  const scene = new THREE.Scene();
+  
+  const renderer = new THREE.WebGLRenderer({ 
+    alpha: true, 
+    antialias: true 
+  });
+  renderer.setSize(WIDTH, HEIGHT);
+  renderer.setPixelRatio(1);
+  renderer.setClearColor(0x000000, 0); 
+  container.appendChild(renderer.domElement);
+
+  const camera = new THREE.PerspectiveCamera(45, WIDTH / HEIGHT, 1, 2000);
+  camera.position.set(0, 40, 180);
+  camera.lookAt(0, 0, 0);
+
+  // --- TEXTURE LOADER (CDN READY) ---
+  const textureLoader = new THREE.TextureLoader();
+  textureLoader.setCrossOrigin('anonymous');
+
+  // fallback prosedural canvas tekstur untuk memastikan render timecut aman dari CORS/Network Timeout,
+  // tapi struktur siap diganti dengan URL CDN langsung.
+  
+  // 1. Planet Texture (Canvas Procedural Stripes)
+  const planetCanvas = document.createElement('canvas');
+  planetCanvas.width = 1024; planetCanvas.height = 512;
+  const pCtx = planetCanvas.getContext('2d');
+  const gradient = pCtx.createLinearGradient(0, 0, 0, 512);
+  gradient.addColorStop(0.0, '#a89c8a');
+  gradient.addColorStop(0.2, '#cbb898');
+  gradient.addColorStop(0.4, '#e1ccad');
+  gradient.addColorStop(0.5, '#b99a74');
+  gradient.addColorStop(0.6, '#e1ccad');
+  gradient.addColorStop(0.8, '#cbb898');
+  gradient.addColorStop(1.0, '#a89c8a');
+  pCtx.fillStyle = gradient;
+  pCtx.fillRect(0, 0, 1024, 512);
+  // Tambahan noise/stripes
+  for(let i=0; i<100; i++) {
+    pCtx.fillStyle = `rgba(0,0,0, ${Math.random() * 0.05})`;
+    pCtx.fillRect(0, Math.random() * 512, 1024, Math.random() * 10);
+  }
+  const planetTexture = new THREE.CanvasTexture(planetCanvas);
+  // CONTOH JIKA INGIN PAKAI CDN:
+  // const planetTexture = textureLoader.load('https://url-cdn-kamu.com/saturn-map.jpg');
+
+  // 2. Rings Texture (Canvas Procedural 1D Gradient)
+  const ringCanvas = document.createElement('canvas');
+  ringCanvas.width = 512; ringCanvas.height = 1;
+  const rCtx = ringCanvas.getContext('2d');
+  const rGradient = rCtx.createLinearGradient(0, 0, 512, 0);
+  rGradient.addColorStop(0.0, 'rgba(168,156,138, 0)');
+  rGradient.addColorStop(0.1, 'rgba(185,154,116, 0.8)');
+  rGradient.addColorStop(0.4, 'rgba(225,204,173, 0.9)');
+  rGradient.addColorStop(0.5, 'rgba(0,0,0, 0)'); // Cassini division
+  rGradient.addColorStop(0.6, 'rgba(203,184,152, 0.8)');
+  rGradient.addColorStop(0.9, 'rgba(168,156,138, 0.4)');
+  rGradient.addColorStop(1.0, 'rgba(0,0,0, 0)');
+  rCtx.fillStyle = rGradient;
+  rCtx.fillRect(0, 0, 512, 1);
+  const ringTexture = new THREE.CanvasTexture(ringCanvas);
+  // CONTOH JIKA INGIN PAKAI CDN:
+  // const ringTexture = textureLoader.load('https://url-cdn-kamu.com/saturn-ring.png');
+
+  // --- MESH: SATURN ---
+  const saturnGeo = new THREE.SphereGeometry(25, 64, 64);
+  const saturnMat = new THREE.MeshStandardMaterial({ 
+    map: planetTexture,
+    roughness: 0.8,
+    metalness: 0.1
+  });
+  const saturn = new THREE.Mesh(saturnGeo, saturnMat);
+  
+  // Kemiringan sumbu Saturnus (~26.7 derajat)
+  const tilt = 26.7 * (Math.PI / 180);
+  saturn.rotation.z = tilt;
+  scene.add(saturn);
+
+  // --- MESH: RINGS ---
+  const innerRadius = 35;
+  const outerRadius = 65;
+  const ringGeo = new THREE.RingGeometry(innerRadius, outerRadius, 128);
+  
+  // Custom UV mapping agar tekstur 1D terentang dari inner ke outer radius
+  const pos = ringGeo.attributes.position;
+  const v3 = new THREE.Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    v3.fromBufferAttribute(pos, i);
+    const radius = v3.length();
+    const uvX = (radius - innerRadius) / (outerRadius - innerRadius);
+    ringGeo.attributes.uv.setXY(i, uvX, 0);
+  }
+
+  const ringMat = new THREE.MeshStandardMaterial({
+    map: ringTexture,
+    side: THREE.DoubleSide,
+    transparent: true,
+    opacity: 1
+  });
+  const ring = new THREE.Mesh(ringGeo, ringMat);
+  ring.rotation.x = Math.PI / 2; // Rebahkan cincin
+  ring.rotation.y = -tilt; // Sesuaikan dengan kemiringan planet
+  scene.add(ring);
+
+  // --- MESH: MOONS (Trigonometric Orbit - Rule 7) ---
+  const moonGeo = new THREE.SphereGeometry(1.5, 32, 32);
+  const moonMat = new THREE.MeshStandardMaterial({ color: 0xcccccc, roughness: 1 });
+  
+  const moon1 = new THREE.Mesh(moonGeo, moonMat); // Titan
+  const moon2 = new THREE.Mesh(new THREE.SphereGeometry(0.8, 32, 32), moonMat); // Enceladus
+  
+  scene.add(moon1);
+  scene.add(moon2);
+
+  // --- LIGHTING ---
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.05); // Gelap khas luar angkasa
+  scene.add(ambientLight);
+
+  // Cahaya matahari dari satu sisi
+  const sunLight = new THREE.DirectionalLight(0xffffff, 2.5);
+  sunLight.position.set(100, 20, 50);
+  scene.add(sunLight);
+
+  // --- ANIMATION LOGIC ---
+  const DURATION_MS = 15000; 
+  let startTime = null;
+
+  function animate(time) {
+    if (!startTime) startTime = time;
+    
+    // Time-based progress (Rule 3)
+    const elapsed = time - startTime;
+    const progress = Math.max(0, Math.min(1, elapsed / DURATION_MS));
+    
+    // Rotasi planet pada sumbunya (360 derajat)
+    saturn.rotation.y = progress * Math.PI * 2;
+
+    // Orbit Bulan menggunakan Trigonometri (Rule 7)
+    // Orbit Titan
+    const titanRadius = 90;
+    const titanAngle = (progress * Math.PI * 2) * 2; // Berputar 2 kali selama durasi
+    moon1.position.x = Math.cos(titanAngle) * titanRadius;
+    moon1.position.z = Math.sin(titanAngle) * titanRadius;
+    moon1.position.y = Math.sin(titanAngle) * 5; // Sedikit miring orbitnya
+
+    // Orbit Enceladus
+    const enceladusRadius = 75;
+    const enceladusAngle = (progress * Math.PI * 2) * 4 + Math.PI; // Lebih cepat dan mulai dari sisi berlawanan
+    moon2.position.x = Math.cos(enceladusAngle) * enceladusRadius;
+    moon2.position.z = Math.sin(enceladusAngle) * enceladusRadius;
+    moon2.position.y = Math.cos(enceladusAngle) * -10;
+
+    // Orbit Kamera secara perlahan agar sinematik
+    const cameraAngle = (progress * Math.PI * 2) * 0.1; // Orbit kamera sangat pelan (10% dari 360)
+    camera.position.x = Math.sin(cameraAngle) * 180;
+    camera.position.z = Math.cos(cameraAngle) * 180;
+    camera.lookAt(0, 0, 0);
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(animate);
+  }
+
+  // Start (Rule 9)
+  requestAnimationFrame(animate);
+</script>
+</body>
+</html>

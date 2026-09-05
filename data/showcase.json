@@ -1,5 +1,23 @@
 [
   {
+    "title": "3D Earth",
+    "subtitle": "Day & Night Cycle",
+    "category": "3D",
+    "video": "videos/3d-earth-day-night-loop.mp4"
+  },
+  {
+    "title": "3D Saturn Orbit",
+    "subtitle": "Orbit with Moons",
+    "category": "3D",
+    "video": "videos/3d_saturn_orbit_cdn.mp4"
+  },
+  {
+    "title": "3D Saturn Planet",
+    "subtitle": "Rotating Rings Space Loop",
+    "category": "3D",
+    "video": "videos/premium-3d-saturn-planet-ring-space-loop.mp4"
+  },
+  {
     "title": "Terminal & Retro Tech",
     "subtitle": "Hacker Interface",
     "category": "Retro Tech",

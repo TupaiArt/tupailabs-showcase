@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Mapping Category → CSS class
     const CATEGORY_CLASS_MAP = {
+        '3D':                 'cat-3d',
         'Retro Tech':         'cat-retro',
         'Vaporwave':          'cat-vaporwave',
         'Gradient':           'cat-gradient',
@@ -142,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         card.className = 'card';
         card.style.animationDelay = `${batchIndex * 60}ms`;
 
-        const downloadLink = item.video.replace('_video.mp4', '.html');
+        const downloadLink = item.html || item.video.replace(/(_video)?\.mp4$/, '.html');
         const catClass     = getCategoryClass(item.category);
 
         card.innerHTML = `
