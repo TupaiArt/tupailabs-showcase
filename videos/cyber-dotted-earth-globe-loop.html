@@ -1,0 +1,189 @@
+<!--METADATA
+{
+  "filename_base": "cyber-dotted-earth-globe-loop",
+  "title": "4K Cyber Dotted Earth Globe Seamless Loop",
+  "description": "High-tech 4K 60FPS looping animation of a rotating dotted Earth globe. Created using a precise procedural latitude/longitude dot grid with pure black oceans and crisp white square nodes forming the continents. Features dynamic latitude scaling to prevent pole overlap, deep cinematic fog for depth, and transparent oceans to reveal the backside continents. Perfect for news broadcasts, cyber technology themes, and global networking backgrounds.",
+  "keywords": [
+    "dotted earth",
+    "cyber globe",
+    "digital world",
+    "technology background",
+    "news globe",
+    "pixel earth",
+    "grid globe",
+    "seamless loop",
+    "4k animation",
+    "transparent oceans",
+    "white dots",
+    "pure black background",
+    "screen overlay",
+    "global network",
+    "hud element",
+    "hologram earth",
+    "sci-fi globe"
+  ],
+  "aspect_ratio": "16:9",
+  "fps": 60,
+  "duration_seconds": 8,
+  "category": "Technology",
+  "category_secondary": "News & Broadcast"
+}
+METADATA-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cyber Dotted Earth Globe 4K</title>
+    <style>
+        body { margin: 0; padding: 0; background: #000000; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <!-- Use a highly reliable CDN for the Earth topology map. 
+         Loaded invisibly via HTML to ensure Timecut/Puppeteer waits for it before window.onload -->
+    <img id="earthMap" src="https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/planets/earth_specular_2048.jpg" crossorigin="anonymous" style="display:none;" />
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+    window.onload = function() {
+        try {
+            // ==========================================
+            // 1. CONFIGURATION
+            // ==========================================
+            const CONFIG = {
+                width: 3840,
+                height: 2160,
+                fps: 60,
+                duration: 8,
+                globeRadius: 35,
+                latSteps: 70,    // Vertical rows
+                lonSteps: 140    // Horizontal columns
+            };
+
+            const totalFrames = CONFIG.fps * CONFIG.duration;
+            const img = document.getElementById('earthMap');
+
+            // ==========================================
+            // 2. EXTRACT EARTH MAP DATA
+            // ==========================================
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            const imgData = ctx.getImageData(0, 0, img.width, img.height).data;
+
+            // ==========================================
+            // 3. SCENE, CAMERA, RENDERER
+            // ==========================================
+            const scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            // Fog provides massive depth cue by dimming the backside of the transparent globe
+            // Camera is at z=135, Front of globe at z=35 (dist 100), Back of globe at z=-35 (dist 170)
+            scene.fog = new THREE.Fog(0x000000, 100, 175); 
+
+            const camera = new THREE.PerspectiveCamera(35, CONFIG.width / CONFIG.height, 1, 500);
+            camera.position.set(0, 0, 135);
+
+            const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(CONFIG.width, CONFIG.height);
+            document.body.appendChild(renderer.domElement);
+
+            // ==========================================
+            // 4. GENERATE DOTTED GLOBE
+            // ==========================================
+            const points = [];
+            
+            // Calculate base dimensions for the dots so they are perfect squares at the equator
+            const circum = 2 * Math.PI * CONFIG.globeRadius;
+            const arcLength = Math.PI * CONFIG.globeRadius;
+            const baseWidth = (circum / CONFIG.lonSteps) * 0.6; // 60% solid, 40% gap
+            const baseHeight = (arcLength / CONFIG.latSteps) * 0.6;
+
+            for (let i = 0; i <= CONFIG.latSteps; i++) {
+                const lat = 90 - (i * (180 / CONFIG.latSteps));
+                if (Math.abs(lat) === 90) continue; // Skip exact pole singularities
+
+                const phi = (90 - lat) * (Math.PI / 180);
+                
+                // Scale width dynamically based on latitude to prevent overlapping at the poles
+                const latScale = Math.max(0.05, Math.cos(lat * Math.PI / 180));
+
+                for (let j = 0; j < CONFIG.lonSteps; j++) {
+                    const lon = (j / CONFIG.lonSteps) * 360 - 180;
+                    const theta = (lon + 180) * (Math.PI / 180);
+
+                    // Map Lat/Lon to Image UV coordinates
+                    const u = (lon + 180) / 360;
+                    const v = (90 - lat) / 180;
+
+                    let tx = Math.floor(u * img.width);
+                    let ty = Math.floor(v * img.height);
+                    tx = Math.max(0, Math.min(img.width - 1, tx));
+                    ty = Math.max(0, Math.min(img.height - 1, ty));
+
+                    const idx = (ty * img.width + tx) * 4;
+                    const r = imgData[idx];
+
+                    // In specular map: Water is bright (white/gray), Land is dark (black)
+                    // We threshold at r < 100 to capture landmasses
+                    if (r < 100) {
+                        const x = CONFIG.globeRadius * Math.sin(phi) * Math.cos(theta);
+                        const z = CONFIG.globeRadius * Math.sin(phi) * Math.sin(theta);
+                        const y = CONFIG.globeRadius * Math.cos(phi);
+                        
+                        points.push({ x, y, z, latScale });
+                    }
+                }
+            }
+
+            // Create InstancedMesh for extreme performance and crisp geometry
+            const boxGeo = new THREE.BoxGeometry(baseWidth, baseHeight, 0.05);
+            const boxMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const globeMesh = new THREE.InstancedMesh(boxGeo, boxMat, points.length);
+
+            const dummy = new THREE.Object3D();
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                dummy.position.set(p.x, p.y, p.z);
+                dummy.lookAt(0, 0, 0); // Flat faces point outward perfectly tangent to the sphere
+                // Apply the calculated dynamic latitude scale to prevent pole overlap
+                dummy.scale.set(p.latScale, 1.0, 1.0);
+                dummy.updateMatrix();
+                globeMesh.setMatrixAt(i, dummy.matrix);
+            }
+
+            const globeGroup = new THREE.Group();
+            globeGroup.add(globeMesh);
+            scene.add(globeGroup);
+
+            // ==========================================
+            // 5. ANIMATION LOOP
+            // ==========================================
+            let currentFrame = 0;
+
+            function animate() {
+                requestAnimationFrame(animate);
+
+                // Deterministic perfect seamless loop across exactly 8 seconds
+                const progress = currentFrame / totalFrames;
+                globeGroup.rotation.y = progress * Math.PI * 2; // 360 degree full rotation
+
+                renderer.render(scene, camera);
+
+                currentFrame++;
+                if (currentFrame >= totalFrames) currentFrame = 0;
+            }
+
+            animate();
+        } catch (e) {
+            alert("JS ERROR: " + e.message + "\\nLine: " + e.lineNumber);
+            console.error(e);
+        }
+    };
+    </script>
+</body>
+</html>

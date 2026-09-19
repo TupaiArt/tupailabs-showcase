@@ -154,6 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     controlsList="nodownload" oncontextmenu="return false;"
                 ></video>
                 <div class="status-overlay">&#9654;</div>
+                ${item.creator ? `
+                    <div class="creator-badge" title="Creator: ${item.creator}">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                            <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                        <span>${item.creator}</span>
+                    </div>
+                ` : ''}
             </div>
             <div class="card-content">
                 <div class="card-header">
@@ -165,9 +174,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 
                 <div class="card-meta">
-                    <span>5s</span>
+                    <span>${item.duration || '5s'}</span>
                     <span>&middot;</span>
                     <span>HTML/CSS</span>
+                    ${item.creator ? `
+                        <span>&middot;</span>
+                        <span class="card-creator-tag">
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="12" cy="7" r="4"></circle>
+                            </svg>
+                            By ${item.creator}
+                        </span>
+                    ` : ''}
                 </div>
 
                 <a href="${downloadLink}" download class="download-btn">
