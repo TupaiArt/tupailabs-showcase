@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<!--METADATA
+{
+  "title": "Ultra Realistic 3D Laptop Mockup 10s Seamless Loop Motion Graphic for Tech Showcase & Commercial Advertising",
+  "author": "Eryck Gusdian",
+  "contact": "javabego@gmail.com",
+  "license": "Exclusive Commercial",
+  "aspect_ratio": "Adaptive (16:9, 9:16, 1:1)",
+  "fps": 60,
+  "duration_seconds": 10,
+  "category": "3D Product Mockup & Motion Design",
+  "copyright": "© 2026 Eryck Gusdian. All rights reserved."
+}
+METADATA-->
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ultra Realistic 3D Laptop Mockup 10s Seamless Loop Motion Graphic</title>
+  
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html, body {
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    .viewport-stage {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      perspective: 900px;
+      padding: 5vmin;
+      box-sizing: border-box;
+    }
+
+    .scaling-container {
+      position: relative;
+      width: 150px;
+      height: 110px;
+      transform-origin: center center;
+      will-change: transform;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .macbook {
+      width: 150px;
+      height: 96px;
+      position: absolute;
+      left: 0;
+      top: 6px;
+      perspective: 550px;
+    }
+
+    .shadow {
+      position: absolute;
+      width: 60px;
+      height: 0px;
+      left: 45px;
+      top: 155px;
+      transform: rotateX(80deg) rotateY(0deg) rotateZ(0deg);
+      box-shadow: 0 0 50px 35px rgba(0, 0, 0, 0.28);
+      animation: shadow 10s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+      filter: blur(2px);
+    }
+
+    .inner {
+      z-index: 20;
+      position: absolute;
+      width: 150px;
+      height: 96px;
+      left: 0;
+      top: 0;
+      transform-style: preserve-3d;
+      transform: rotateX(-20deg) rotateY(0deg) rotateZ(0deg);
+      animation: rotate 10s cubic-bezier(0.42, 0.0, 0.58, 1.0) infinite;
+    }
+
+    .screen {
+      width: 150px;
+      height: 96px;
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      border-radius: 7px;
+      background: #dedede;
+      transform-style: preserve-3d;
+      transform-origin: 50% 93px;
+      transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg);
+      animation: lid-screen 10s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      background-image: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(0,0,0,0.2) 100%);
+      box-shadow: inset 0 2px 4px rgba(255,255,255,0.7), inset 0 -1px 2px rgba(0,0,0,0.15);
+    }
+
+    .screen .face-one {
+      width: 150px;
+      height: 96px;
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      border-radius: 7px;
+      background: #d8d8d8;
+      transform: translateZ(2px);
+      background-image: linear-gradient(145deg, rgba(255,255,255,0.3) 0%, rgba(0,0,0,0.18) 100%);
+    }
+
+    .screen .face-one .camera {
+      width: 3px;
+      height: 3px;
+      border-radius: 50%;
+      background: radial-gradient(circle at 35% 35%, #333 0%, #000 80%);
+      position: absolute;
+      left: 50%;
+      top: 4px;
+      margin-left: -1.5px;
+      box-shadow: 0 0 1px rgba(255,255,255,0.3);
+    }
+
+    .screen .face-one .display {
+      width: 130px;
+      height: 74px;
+      margin: 10px;
+      background-color: #050505;
+      background-size: 100% 100%;
+      border-radius: 2px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: inset 0 0 3px rgba(0,0,0,0.95);
+    }
+
+    .screen .face-one .display .shade {
+      position: absolute;
+      left: 0;
+      top: 0;
+      width: 130px;
+      height: 74px;
+      background: linear-gradient(-135deg, 
+        rgba(255,255,255,0) 0%, 
+        rgba(255,255,255,0.08) 46%, 
+        rgba(255,255,255,0.14) 50%, 
+        rgba(255,255,255,0) 54%);
+      animation: screen-shade 10s ease infinite;
+      background-size: 260px 150px;
+      background-position: 0px 0px;
+    }
+
+    .macbody {
+      width: 150px;
+      height: 96px;
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      border-radius: 7px;
+      background: #cfcfcf;
+      transform-style: preserve-3d;
+      transform-origin: 50% bottom;
+      transform: rotateX(-90deg);
+      animation: lid-macbody 10s ease infinite;
+      background-image: linear-gradient(135deg, rgba(255,255,255,0.35) 0%, rgba(0,0,0,0.18) 100%);
+      box-shadow: inset 0 1px 2px rgba(255,255,255,0.6);
+    }
+
+    .macbody .face-one {
+      width: 150px;
+      height: 96px;
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      border-radius: 7px;
+      transform-style: preserve-3d;
+      background: #e2e2e2;
+      animation: lid-keyboard-area 10s ease infinite;
+      transform: translateZ(-2px);
+      background-image: linear-gradient(135deg, rgba(255,255,255,0.3) 0%, rgba(0,0,0,0.12) 100%);
+    }
+
+    .macbody .touchpad {
+      width: 42px;
+      height: 31px;
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      border-radius: 3px;
+      margin: -44px 0 0 -21px;
+      background: linear-gradient(180deg, #d3d3d3 0%, #cacaca 100%);
+      box-shadow: inset 0 0.5px 1px rgba(0,0,0,0.22), 0 0.5px 0.5px rgba(255,255,255,0.6);
+    }
+
+    .macbody .keyboard {
+      width: 132px;
+      height: 45px;
+      position: absolute;
+      left: 9px;
+      top: 41px;
+      border-radius: 3px;
+      transform-style: preserve-3d;
+      background: #252525;
+      background-image: linear-gradient(180deg, #1b1b1b 0%, #2a2a2a 100%);
+      box-shadow: inset 0 1px 2px rgba(0,0,0,0.8), 0 0.5px 1px rgba(255,255,255,0.4);
+      padding: 1px 0 0 1px;
+    }
+
+    .keyboard .key {
+      width: 6.2px;
+      height: 6.2px;
+      float: left;
+      margin: 0.8px;
+      border-radius: 1.2px;
+      transform-style: preserve-3d;
+      transform: translateZ(-1.8px);
+      background: linear-gradient(180deg, #383838 0%, #252525 100%);
+      border: 0.2px solid rgba(255,255,255,0.06);
+      box-shadow: 0 -0.8px 1px rgba(0,0,0,0.6), inset 0 0.3px 0.4px rgba(255,255,255,0.18);
+      animation: keys 10s cubic-bezier(0.4, 0.0, 0.2, 1) infinite;
+      transition: background 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .key.space {
+      width: 44px;
+    }
+
+    .key.f {
+      height: 3.2px;
+    }
+
+    /* Bottom Feet */
+    .macbody .pad {
+      width: 4.5px;
+      height: 4.5px;
+      background: #222;
+      border-radius: 50%;
+      position: absolute;
+      box-shadow: 0 0.5px 1px rgba(0,0,0,0.5);
+    }
+
+    .pad.one { left: 16px; top: 16px; }
+    .pad.two { right: 16px; top: 16px; }
+    .pad.three { right: 16px; bottom: 16px; }
+    .pad.four { left: 16px; bottom: 16px; }
+
+    @keyframes keys {
+      0%, 100% {
+        box-shadow: 0 -0.8px 1.2px rgba(0,0,0,0.5), inset 0 0.3px 0.4px rgba(255,255,255,0.18);
+        background: linear-gradient(180deg, #383838 0%, #252525 100%);
+      }
+      5% {
+        box-shadow: 0.5px -0.6px 1px rgba(0,0,0,0.5), inset 0 0.4px 0.4px rgba(255,255,255,0.22);
+        background: linear-gradient(180deg, #3d3d3d 0%, #272727 100%);
+      }
+      20% {
+        box-shadow: -0.6px 0.6px 1.2px rgba(0,0,0,0.6), inset 0 0.2px 0.3px rgba(255,255,255,0.1);
+        background: linear-gradient(180deg, #2e2e2e 0%, #1f1f1f 100%);
+      }
+      25% {
+        box-shadow: -0.8px 0.5px 1px rgba(0,0,0,0.6), inset 0 0.2px 0.3px rgba(255,255,255,0.1);
+        background: linear-gradient(180deg, #2a2a2a 0%, #1d1d1d 100%);
+      }
+      60% {
+        box-shadow: -0.7px 0.4px 1px rgba(0,0,0,0.55), inset 0 0.3px 0.4px rgba(255,255,255,0.16);
+        background: linear-gradient(180deg, #333333 0%, #232323 100%);
+      }
+      80% {
+        box-shadow: 0 -0.8px 1.2px rgba(0,0,0,0.5), inset 0 0.3px 0.4px rgba(255,255,255,0.2);
+        background: linear-gradient(180deg, #393939 0%, #262626 100%);
+      }
+      87% {
+        box-shadow: 0 -0.8px 1.2px rgba(0,0,0,0.5), inset 0 0.3px 0.4px rgba(255,255,255,0.18);
+        background: linear-gradient(180deg, #383838 0%, #252525 100%);
+      }
+    }
+
+    @keyframes rotate {
+      0% { transform: rotateX(-20deg) rotateY(0deg) rotateZ(0deg); }
+      5% { transform: rotateX(-20deg) rotateY(-20deg) rotateZ(0deg); }
+      20% { transform: rotateX(30deg) rotateY(200deg) rotateZ(0deg); }
+      25% { transform: rotateX(-60deg) rotateY(150deg) rotateZ(0deg); }
+      60% { transform: rotateX(-20deg) rotateY(130deg) rotateZ(0deg); }
+      65% { transform: rotateX(-20deg) rotateY(120deg) rotateZ(0deg); }
+      80% { transform: rotateX(-20deg) rotateY(375deg) rotateZ(0deg); }
+      85% { transform: rotateX(-20deg) rotateY(357deg) rotateZ(0deg); }
+      87% { transform: rotateX(-20deg) rotateY(360deg) rotateZ(0deg); }
+      100% { transform: rotateX(-20deg) rotateY(360deg) rotateZ(0deg); }
+    }
+
+    @keyframes lid-screen {
+      0% { transform: rotateX(0deg); background-position: left bottom; }
+      5% { transform: rotateX(50deg); background-position: left bottom; }
+      20% { transform: rotateX(-90deg); background-position: -150px top; }
+      25% { transform: rotateX(15deg); background-position: left bottom; }
+      30% { transform: rotateX(-5deg); background-position: right top; }
+      38% { transform: rotateX(5deg); background-position: right top; }
+      48% { transform: rotateX(0deg); background-position: right top; }
+      90% { transform: rotateX(0deg); background-position: right top; }
+      100% { transform: rotateX(0deg); background-position: right center; }
+    }
+
+    @keyframes lid-macbody {
+      0%, 50%, 100% { transform: rotateX(-90deg); }
+    }
+
+    @keyframes lid-keyboard-area {
+      0% { background-color: #dfdfdf; }
+      50% { background-color: #bbbbbb; }
+      100% { background-color: #dfdfdf; }
+    }
+
+    @keyframes screen-shade {
+      0% { background-position: -20px 0px; }
+      5% { background-position: -40px 0px; }
+      20% { background-position: 200px 0; }
+      50% { background-position: -200px 0; }
+      80% { background-position: 0px 0px; }
+      85% { background-position: -30px 0; }
+      90% { background-position: -20px 0; }
+      100% { background-position: -20px 0px; }
+    }
+
+    @keyframes shadow {
+      0% {
+        transform: rotateX(80deg) rotateY(0deg) rotateZ(0deg);
+        box-shadow: 0 0 50px 35px rgba(0, 0, 0, 0.28);
+      }
+      5% {
+        transform: rotateX(80deg) rotateY(10deg) rotateZ(0deg);
+        box-shadow: 0 0 50px 35px rgba(0, 0, 0, 0.28);
+      }
+      20% {
+        transform: rotateX(30deg) rotateY(-20deg) rotateZ(-20deg);
+        box-shadow: 0 0 45px 25px rgba(0, 0, 0, 0.25);
+      }
+      25% {
+        transform: rotateX(80deg) rotateY(-20deg) rotateZ(50deg);
+        box-shadow: 0 0 30px 15px rgba(0, 0, 0, 0.12);
+      }
+      60% {
+        transform: rotateX(80deg) rotateY(0deg) rotateZ(-50deg) translateX(30px);
+        box-shadow: 0 0 50px 35px rgba(0, 0, 0, 0.28);
+      }
+      100% {
+        box-shadow: 0 0 50px 35px rgba(0, 0, 0, 0.28);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="viewport-stage">
+    <div class="scaling-container" id="laptopRig">
+      <div class="macbook">
+        <div class="inner">
+          <div class="screen">
+            <div class="face-one">
+              <div class="camera"></div>
+              <div class="display">
+                <div class="shade"></div>
+              </div>
+            </div>
+          </div>
+          <div class="macbody">
+            <div class="face-one">
+              <div class="touchpad"></div>
+              <div class="keyboard">
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key space"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+                <div class="key f"></div>
+              </div>
+            </div>
+            <div class="pad one"></div>
+            <div class="pad two"></div>
+            <div class="pad three"></div>
+            <div class="pad four"></div>
+          </div>
+        </div>
+        <div class="shadow"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const container = document.getElementById('laptopRig');
+
+      function adaptScale() {
+        if (!container) return;
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+
+        // Balanced scaling factor ensuring comfortable negative space in all viewports (16:9, 9:16, 1:1)
+        const minDimension = Math.min(w, h);
+        const calculatedScale = Math.min(Math.max(0.65, minDimension / 360), 2.2);
+
+        container.style.transform = `scale(${calculatedScale})`;
+      }
+
+      window.addEventListener('resize', adaptScale, { passive: true });
+      window.addEventListener('orientationchange', adaptScale, { passive: true });
+      adaptScale();
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,571 @@
+<!--METADATA
+{
+  "filename_base": "neon-night-street-racing-circuit-full-lap-trace-4k",
+  "title": "Neon Night Street Racing Circuit Full Lap Motion Graphic",
+  "description": "Top down motorsport circuit animation with a luminous racing marker completing a full lap and progressively illuminating the track, designed as a futuristic night racing and speed concept background.",
+  "keywords": ["racing","circuit","race track","motorsport","night race","neon","speed","racing line","track","lap","full lap","street circuit","automotive","glowing","telemetry","race","sport","competition","acceleration","cornering","driving","transportation","futuristic","motion graphics","circuit map","race course","technology","4k","background","animation"],
+  "aspect_ratio": "16:9",
+  "fps": 30,
+  "duration_seconds": 10,
+  "category": "Sports",
+  "category_secondary": "Technology",
+  "seed": 28491,
+  "user_salt": 57102
+}
+METADATA-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    body, html {
+        width: 100vw;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+        background-color: #05070D;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    #container {
+        position: absolute;
+        width: 3840px;
+        height: 2160px;
+        perspective: 2800px;
+        transform-origin: center center;
+    }
+    #circuit-wrapper {
+        position: absolute;
+        width: 3840px;
+        height: 2160px;
+        left: 0;
+        top: 0;
+        transform-origin: 1920px 1080px;
+        transform-style: preserve-3d;
+    }
+    #ambient-glow {
+        position: absolute;
+        width: 2304px;
+        height: 1512px;
+        left: 768px;
+        top: 324px;
+        background: radial-gradient(circle at center, #0A101C 0%, transparent 70%);
+        opacity: 0.35;
+        border-radius: 50%;
+    }
+    svg {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+    }
+    
+    /* Base Circuit */
+    .dormant-layer-1 { stroke: #182131; stroke-width: 31.32px; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+    .dormant-layer-2 { stroke: #253041; stroke-width: 20.52px; fill: none; stroke-linejoin: round; stroke-linecap: round; }
+    .dormant-layer-3 { stroke: #39465A; stroke-width: 3.02px; fill: none; stroke-linejoin: round; stroke-linecap: round; opacity: 0.55; }
+    
+    /* Active Trace */
+    .active-trace { fill: none; stroke-linejoin: round; stroke-linecap: round; mix-blend-mode: screen; }
+    .active-glow-1 { stroke: #00D9FF; stroke-width: 51.84px; opacity: 0.06; }
+    .active-glow-2 { stroke: #00D9FF; stroke-width: 34.56px; opacity: 0.12; }
+    .active-glow-3 { stroke: #00D9FF; stroke-width: 20.00px; opacity: 0.18; }
+    .active-energy { stroke: #00BDEB; stroke-width: 17.71px; opacity: 0.72; }
+    .active-core { stroke: #D9FAFF; stroke-width: 4.32px; opacity: 1.0; }
+
+    /* Payoff Pulse */
+    .payoff-pulse { fill: none; stroke-linejoin: round; stroke-linecap: round; mix-blend-mode: screen; opacity: 0; }
+    .pulse-glow { stroke: #00D9FF; stroke-width: 75px; opacity: 0.15; }
+    .pulse-core { stroke: #D9FAFF; stroke-width: 12px; opacity: 0.4; }
+
+    /* Gate */
+    .gate-bar { fill: #FF334F; }
+    .gate-node { fill: #FF334F; }
+
+    /* Marker */
+    #marker-group { mix-blend-mode: screen; }
+    .marker-halo { fill: #00D9FF; opacity: 0.15; }
+    .marker-body { fill: #00D9FF; }
+    .marker-core { fill: #E9FDFF; }
+    .marker-tail { fill: url(#tail-grad); opacity: 0.8; }
+
+    /* Broadcast Typography Lockup */
+    #hud-overlay {
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        left: 0;
+        top: 0;
+        pointer-events: none;
+        z-index: 100;
+        display: flex;
+        justify-content: center;
+    }
+    #title-container {
+        position: absolute;
+        top: 7.5%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        font-family: 'Helvetica Neue', 'Arial Narrow', 'Oswald', sans-serif;
+        font-weight: 800;
+        text-transform: uppercase;
+        color: #EAFBFF;
+        transform-origin: center top;
+    }
+    #title-las-vegas {
+        font-size: 3.2vh;
+        letter-spacing: 0.12em;
+        transform: scaleX(0.82);
+        text-shadow: 0 0 0.30vh rgba(0, 217, 255, 0.25);
+        display: flex;
+        justify-content: center;
+        white-space: pre;
+    }
+    .lv-letter {
+        display: inline-block;
+        will-change: color, text-shadow;
+    }
+    #title-circuit-lockup {
+        display: flex;
+        align-items: center;
+        margin-top: 0.4vh;
+        justify-content: center;
+    }
+    #title-circuit {
+        font-size: 1.25vh; /* Approx 38-42% of hero line */
+        letter-spacing: 0.45em;
+        display: flex;
+        margin: 0 1vh;
+        color: #EAFBFF;
+        text-shadow: 0 0 0.25vh rgba(0, 217, 255, 0.20);
+    }
+    .c-letter {
+        display: inline-block;
+        transform: translateY(0.35vh);
+        opacity: 0;
+    }
+    .tech-line {
+        width: 0px; 
+        height: 0.15vh;
+        background-color: #00D9FF;
+        box-shadow: 0 0 0.25vh rgba(0, 217, 255, 0.5);
+    }
+</style>
+</head>
+<body>
+
+<div id="container">
+    <div id="circuit-wrapper">
+        <div id="ambient-glow"></div>
+        <svg id="main-svg" viewBox="0 0 3840 2160">
+            <defs>
+                <linearGradient id="tail-grad" x1="100%" y1="0%" x2="0%" y2="0%">
+                    <stop offset="0%" stop-color="#00D9FF" stop-opacity="1"/>
+                    <stop offset="100%" stop-color="#00D9FF" stop-opacity="0"/>
+                </linearGradient>
+            </defs>
+
+            <g id="circuit-container">
+                <!-- Dormant Track -->
+                <path id="dormant-1" class="dormant-layer-1" />
+                <path id="dormant-2" class="dormant-layer-2" />
+                <path id="dormant-3" class="dormant-layer-3" />
+
+                <!-- Active Trace -->
+                <path id="active-1" class="active-trace active-glow-1" />
+                <path id="active-2" class="active-trace active-glow-2" />
+                <path id="active-3" class="active-trace active-glow-3" />
+                <path id="active-4" class="active-trace active-energy" />
+                <path id="active-5" class="active-trace active-core" />
+
+                <!-- Payoff Pulse -->
+                <g id="payoff-group">
+                    <path id="pulse-1" class="payoff-pulse pulse-glow" />
+                    <path id="pulse-2" class="payoff-pulse pulse-core" />
+                </g>
+
+                <!-- Gate -->
+                <g id="gate">
+                    <rect class="gate-bar" id="gate-bar-1" x="-18.36" y="-6.6" width="36.72" height="3.45" rx="1" />
+                    <rect class="gate-bar" id="gate-bar-2" x="-18.36" y="3.15" width="36.72" height="3.45" rx="1" />
+                    <circle class="gate-node" id="gate-node-1" cx="22" cy="0" r="4.5" />
+                    <circle class="gate-node" id="gate-node-2" cx="-22" cy="0" r="4.5" />
+                </g>
+
+                <!-- Marker -->
+                <g id="marker">
+                    <rect class="marker-tail" id="marker-tail" x="-40" y="-4.5" width="40" height="9" rx="4.5" />
+                    <rect class="marker-halo" x="-15" y="-12" width="40" height="24" rx="12" />
+                    <rect class="marker-body" id="marker-body" x="-10" y="-5.94" width="30" height="11.88" rx="5.94" />
+                    <rect class="marker-core" x="12" y="-2" width="6" height="4" rx="2" />
+                </g>
+            </g>
+        </svg>
+    </div>
+
+    <!-- HUD Overlay for Broadcast Typography -->
+    <div id="hud-overlay">
+        <div id="title-container">
+            <div id="title-las-vegas"></div>
+            <div id="title-circuit-lockup">
+                <div id="line-left" class="tech-line"></div>
+                <div id="title-circuit"></div>
+                <div id="line-right" class="tech-line"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SEED = 28491;
+    const SALT = 57102;
+    const DURATION = 10000; 
+
+    // PRNG setup
+    function mulberry32(a) {
+        return function() {
+            a |= 0; a = (a + 0x6D2B79F5) | 0;
+            let t = Math.imul(a ^ (a >>> 15), 1 | a);
+            t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+            return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+        };
+    }
+    const finalSeed = (SEED + Math.imul(SALT, 2654435761)) >>> 0;
+    const rng = mulberry32(finalSeed);
+
+    // Circuit Data
+    const circuitPathData = "M 1500 1850 L 3000 1850 A 200 200 0 0 0 3200 1650 L 3200 800 A 150 150 0 0 0 3050 650 L 2600 650 A 150 150 0 0 1 2450 500 L 2450 450 A 150 150 0 0 0 2300 300 L 1200 300 A 200 200 0 0 0 1000 500 L 1000 700 A 150 150 0 0 1 850 850 L 600 850 A 200 200 0 0 0 400 1050 L 400 1500 A 150 150 0 0 0 550 1650 L 1300 1650 A 100 100 0 0 1 1400 1750 A 100 100 0 0 0 1500 1850 Z";
+
+    // Build Typography Elements dynamically
+    const lvText = "LAS VEGAS";
+    const circuitText = "CIRCUIT";
+    const lvContainer = document.getElementById('title-las-vegas');
+    const cContainer = document.getElementById('title-circuit');
+    const lineLeft = document.getElementById('line-left');
+    const lineRight = document.getElementById('line-right');
+    const lvLetters = [];
+    const cLetters = [];
+
+    for (let i = 0; i < lvText.length; i++) {
+        let span = document.createElement('span');
+        span.className = 'lv-letter';
+        span.innerHTML = lvText[i] === ' ' ? '&nbsp;' : lvText[i];
+        lvContainer.appendChild(span);
+        lvLetters.push({ el: span, char: lvText[i] });
+    }
+
+    for (let i = 0; i < circuitText.length; i++) {
+        let span = document.createElement('span');
+        span.className = 'c-letter';
+        span.innerText = circuitText[i];
+        cContainer.appendChild(span);
+        cLetters.push(span);
+    }
+
+    // Setup SVG Paths
+    const dormantIds = ['dormant-1', 'dormant-2', 'dormant-3'];
+    const activeIds = ['active-1', 'active-2', 'active-3', 'active-4', 'active-5', 'pulse-1', 'pulse-2'];
+    
+    dormantIds.forEach(id => document.getElementById(id).setAttribute('d', circuitPathData));
+    activeIds.forEach(id => document.getElementById(id).setAttribute('d', circuitPathData));
+
+    // Composition Updates
+    const container = document.getElementById('container');
+    const circuitWrapper = document.getElementById('circuit-wrapper');
+    const circuitGroup = document.getElementById('circuit-container');
+    
+    const hueShift = Math.floor(rng() * 30 - 15);
+    const trackRotBase = -5 + rng() * 10;
+    
+    // Applying height adjustments: 69/72 ≈ 0.958 ratio + Y offset
+    const scaleAdjust = 0.958; 
+    const yOffsetPixels = 43.2; // 2% of 2160 (moving from Y: 14% to 16%)
+    
+    container.style.filter = `hue-rotate(${hueShift}deg)`;
+    circuitGroup.style.transformOrigin = "1920px 1080px";
+
+    const markerEl = document.getElementById('marker');
+    const markerTail = document.getElementById('marker-tail');
+    const gateEl = document.getElementById('gate');
+    const gateBars = document.querySelectorAll('.gate-bar');
+    const gateNodes = document.querySelectorAll('.gate-node');
+    const payoffGroup = document.getElementById('payoff-group');
+
+    // Math Engine for Circuit
+    const pathMeasure = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    pathMeasure.setAttribute('d', circuitPathData);
+    const totalLength = pathMeasure.getTotalLength();
+
+    activeIds.forEach(id => {
+        const el = document.getElementById(id);
+        el.style.strokeDasharray = `${totalLength} ${totalLength}`;
+        el.style.strokeDashoffset = totalLength;
+    });
+
+    const LUT_STEPS = 1000;
+    const lut = [];
+    let accumulatedTime = 0;
+    
+    for (let i = 0; i <= LUT_STEPS; i++) {
+        let d = (i / LUT_STEPS) * totalLength;
+        let p1 = pathMeasure.getPointAtLength(Math.max(0, d - 10));
+        let p2 = pathMeasure.getPointAtLength(Math.min(totalLength, d + 10));
+        let angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+
+        let deltaAngle = 0;
+        if (i > 0) {
+            let prevAngle = lut[i-1].angle;
+            deltaAngle = Math.abs(angle - prevAngle);
+            if (deltaAngle > Math.PI) deltaAngle = 2 * Math.PI - deltaAngle;
+        }
+
+        let speed = 1.0 - (deltaAngle * 12.0);
+        speed = Math.max(0.35, Math.min(1.0, speed));
+        
+        let timeDelta = (i === 0) ? 0 : 1.0 / speed;
+        accumulatedTime += timeDelta;
+        
+        lut.push({ distance: d, time: accumulatedTime, angle: angle, speed: speed });
+    }
+
+    const maxLutTime = lut[LUT_STEPS].time;
+    lut.forEach(pt => pt.nTime = pt.time / maxLutTime);
+
+    function getPhysicsState(normalizedLapProgress) {
+        let low = 0, high = LUT_STEPS;
+        while (low < high) {
+            let mid = (low + high) >>> 1;
+            if (lut[mid].nTime < normalizedLapProgress) low = mid + 1;
+            else high = mid;
+        }
+        let pA = lut[Math.max(0, low - 1)];
+        let pB = lut[low];
+        let tRange = pB.nTime - pA.nTime;
+        let factor = (tRange === 0) ? 0 : (normalizedLapProgress - pA.nTime) / tRange;
+        return {
+            distance: pA.distance + (pB.distance - pA.distance) * factor,
+            speed: pA.speed + (pB.speed - pA.speed) * factor
+        };
+    }
+
+    function getTangentAngle(d) {
+        let p1 = pathMeasure.getPointAtLength(Math.max(0, d - 1));
+        let p2 = pathMeasure.getPointAtLength(Math.min(totalLength, d + 1));
+        return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    }
+
+    function easeInCubic(t) { return t * t * t; }
+    function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+    function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
+    function easeOutBack(t) {
+        const c1 = 1.70158;
+        const c3 = c1 + 1;
+        return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    }
+
+    function warpLapTime(t) {
+        if (t < 0.12) return 0.12 * easeInCubic(t / 0.12);
+        else if (t > 0.88) return 0.88 + 0.12 * easeOutCubic((t - 0.88) / 0.12);
+        return t;
+    }
+
+    const gateStartPoint = pathMeasure.getPointAtLength(0);
+    const gateStartAngle = getTangentAngle(0);
+    gateEl.setAttribute('transform', `translate(${gateStartPoint.x}, ${gateStartPoint.y}) rotate(${(gateStartAngle * 180 / Math.PI) + 90})`);
+
+    // Master Render Loop
+    function renderAtTime(timeMs) {
+        const t = (timeMs % DURATION) / DURATION; // 0.0 to 1.0
+
+        let distance = 0;
+        let traceOffset = totalLength;
+        let markerScaleX = 1.0;
+        let markerScaleY = 1.0;
+        let markerX = gateStartPoint.x;
+        let markerY = gateStartPoint.y;
+        let markerAngle = gateStartAngle;
+        let tailLength = 15;
+        let glowOp = 0.85;
+
+        gateBars.forEach(b => b.style.fill = "#FF334F");
+        gateNodes.forEach(n => n.style.fill = "#FF334F");
+        payoffGroup.style.opacity = 0;
+        
+        // --- 3D CAMERA ROTATION & COMPOSITION FIX ---
+        const cameraTilt = 55;
+        const continuousRot = trackRotBase + (t * -360);
+        circuitWrapper.style.transform = `rotateX(${cameraTilt}deg) rotateZ(${continuousRot}deg)`;
+        circuitGroup.style.transform = `scale(${scaleAdjust}) translateY(${yOffsetPixels}px)`;
+        
+        // --- LAP ANIMATION STATES ---
+        if (t < 0.045) {
+            let p = t / 0.045; 
+            markerScaleX = 1.0 - Math.sin(p * Math.PI) * 0.09;
+        }
+        else if (t < 0.690) {
+            let p = (t - 0.045) / 0.645;
+            let state = getPhysicsState(warpLapTime(p));
+            distance = state.distance;
+            traceOffset = totalLength - distance;
+            
+            let pt = pathMeasure.getPointAtLength(distance);
+            markerX = pt.x;
+            markerY = pt.y;
+            markerAngle = getTangentAngle(distance);
+            
+            markerScaleX = 0.94 + state.speed * 0.14;
+            if (state.speed < 0.6) markerScaleY = 1.035; 
+            
+            tailLength = 15 + state.speed * 35; 
+            glowOp = 0.85 + state.speed * 0.25;
+        }
+        else if (t < 0.730) {
+            let p = (t - 0.690) / 0.040;
+            traceOffset = 0;
+            
+            let overDist = Math.sin(p * Math.PI) * (totalLength * 0.007);
+            markerX = gateStartPoint.x + Math.cos(gateStartAngle) * overDist;
+            markerY = gateStartPoint.y + Math.sin(gateStartAngle) * overDist;
+            markerAngle = gateStartAngle;
+            
+            let flashP = Math.sin(p * Math.PI);
+            let r = 255;
+            let g = Math.floor(51 + flashP * 185);
+            let b = Math.floor(79 + flashP * 160);
+            let flashColor = `rgb(${r},${g},${b})`;
+            gateBars.forEach(bar => bar.style.fill = flashColor);
+            gateNodes.forEach(node => node.style.fill = flashColor);
+        }
+        else if (t < 0.815) {
+            let p = (t - 0.730) / 0.085;
+            traceOffset = 0;
+            markerAngle = gateStartAngle;
+            payoffGroup.style.opacity = Math.sin(p * Math.PI);
+        }
+        else {
+            let p = (t - 0.815) / 0.185;
+            let drainEase = easeInOutQuad(p);
+            traceOffset = -totalLength * drainEase;
+            markerAngle = gateStartAngle;
+            
+            if (t > 0.982) {
+                let squashP = (t - 0.982) / 0.018;
+                markerScaleX = 1.0 - Math.sin(squashP * Math.PI * 0.5) * 0.09;
+            }
+        }
+
+        for (let i = 0; i < 5; i++) {
+            document.getElementById(activeIds[i]).style.strokeDashoffset = traceOffset;
+        }
+        markerEl.setAttribute('transform', `translate(${markerX}, ${markerY}) rotate(${markerAngle * 180 / Math.PI}) scale(${markerScaleX}, ${markerScaleY})`);
+        markerTail.setAttribute('width', tailLength);
+        markerTail.setAttribute('x', -tailLength - 10);
+        markerEl.style.opacity = Math.min(1.0, glowOp);
+
+        // --- TYPOGRAPHY LOGIC ---
+        let lvScale = 0.82;
+        let lvTrack = 0.12;
+        let lineW = 0;
+        
+        if (t < 0.018) {
+            lvScale = 0.82; lvTrack = 0.12; lineW = 0;
+        } else if (t <= 0.450) {
+            let p = Math.min(1, (t - 0.018) / 0.270);
+            let e = easeOutCubic(p);
+            lvScale = 0.82 + (0.18 * e);
+            lvTrack = 0.12 + (0.10 * e);
+            lineW = e * 2.5; // vw relative measurement visually
+        } else if (t <= 0.890) {
+            lvScale = 1.0; lvTrack = 0.22; lineW = 2.5;
+        } else if (t <= 0.965) {
+            let p = (t - 0.890) / 0.075;
+            let e = easeInCubic(p);
+            lvScale = 1.0 - (0.18 * e);
+            lvTrack = 0.22 - (0.10 * e);
+            lineW = 2.5 - (2.5 * e);
+        }
+
+        lvContainer.style.transform = `scaleX(${lvScale})`;
+        lvContainer.style.letterSpacing = `${lvTrack}em`;
+        lineLeft.style.width = `${lineW}vw`;
+        lineRight.style.width = `${lineW}vw`;
+
+        // Circuit Snap (0.32 - 0.55s) & Collapse (0.890 - 0.965s)
+        const snapStart = 0.032, collapseStart = 0.890;
+        cLetters.forEach((span, i) => {
+            let localT = 0;
+            
+            if (t >= snapStart && t <= collapseStart) {
+                let letterStart = snapStart + (i * 0.003); // stagger 30ms equivalent
+                if (t > letterStart) {
+                    let p = Math.min(1, (t - letterStart) / 0.018);
+                    localT = easeOutBack(p);
+                }
+            } else if (t > collapseStart) {
+                let letterStart = collapseStart + ((6 - i) * 0.003); // reverse stagger
+                if (t > letterStart) {
+                    let p = Math.min(1, (t - letterStart) / 0.020);
+                    localT = 1 - easeInCubic(p);
+                } else {
+                    localT = 1;
+                }
+            }
+
+            let yOffset = 0.35 * (1 - Math.max(0, localT));
+            let op = t === 0 ? 0 : Math.max(0, Math.min(1, localT * 2));
+            
+            span.style.transform = `translateY(${yOffset}vh)`;
+            span.style.opacity = op;
+        });
+
+        // Payoff Sweep across LAS VEGAS (6.90s - 7.30s)
+        let sweepActive = (t >= 0.690 && t <= 0.730);
+        let sweepP = sweepActive ? ((t - 0.690) / 0.040) : 0;
+        
+        lvLetters.forEach((item, i) => {
+            if (!sweepActive || item.char === ' ') {
+                item.el.style.color = '#EAFBFF';
+                item.el.style.textShadow = '0 0 0.30vh rgba(0, 217, 255, 0.25)';
+                return;
+            }
+            let ratio = i / (lvLetters.length - 1);
+            let dist = Math.abs(sweepP - ratio);
+            
+            if (dist < 0.2) {
+                let intensity = 1 - (dist / 0.2);
+                item.el.style.color = '#FFFFFF';
+                item.el.style.textShadow = `0 0 ${0.30 + intensity * 0.50}vh #00D9FF`;
+            } else {
+                item.el.style.color = '#EAFBFF';
+                item.el.style.textShadow = '0 0 0.30vh rgba(0, 217, 255, 0.25)';
+            }
+        });
+    }
+
+    function tick(timestamp) {
+        renderAtTime(timestamp);
+        requestAnimationFrame(tick);
+    }
+
+    function adaptScale() {
+        const scale = Math.min(window.innerWidth / 3840, window.innerHeight / 2160);
+        container.style.transform = `scale(${scale})`;
+    }
+    window.addEventListener('resize', adaptScale, { passive: true });
+    window.addEventListener('orientationchange', adaptScale, { passive: true });
+    adaptScale();
+
+    requestAnimationFrame(tick);
+
+</script>
+</body>
+</html>

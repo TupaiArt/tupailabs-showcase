@@ -1,5 +1,20 @@
 [
   {
+    "title": "3D Laptop Mockup",
+    "subtitle": "Realistic Tech Showcase",
+    "category": "3D",
+    "video": "videos/3d_laptop_mockup.mp4",
+    "creator": "Eryck Gusdian",
+    "duration": "10s"
+  },
+  {
+    "title": "Las Vegas Circuit",
+    "subtitle": "Neon Lap Path Trace",
+    "category": "Path Drawing",
+    "video": "videos/circuit-las-vegas.mp4",
+    "duration": "10s"
+  },
+  {
     "title": "Cyber Dotted Earth",
     "subtitle": "4K Globe Seamless Loop",
     "category": "3D",
