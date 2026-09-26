@@ -1,0 +1,258 @@
+<!--METADATA
+{
+  "filename_base": "badge_stok_flash_sale_4k",
+  "title": "Badge Stok Flash Sale 4K",
+  "description": "Animasi countdown stok flash sale dengan efek flip 3D menggunakan time-based requestAnimationFrame",
+  "keywords": ["flash sale", "stok", "flip clock", "countdown", "badge", "sold out", "3d", "promo"],
+  "aspect_ratio": "16:9",
+  "fps": 60,
+  "duration_seconds": 10,
+  "category": "Motion Graphics",
+  "category_secondary": "Overlays",
+  "seed": 918237,
+  "user_salt": 102938
+}
+METADATA-->
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Badge Stok Flash Sale 4K</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Anton&display=swap" rel="stylesheet">
+  
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: #ffffff; 
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    #canvas-container {
+      position: absolute;
+      width: 3840px;
+      height: 2160px;
+      left: 0;
+      top: 0;
+      background: #ffffff;
+      font-family: 'Anton', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .nums {
+      box-shadow: 0 45px 112px rgba(0, 0, 0, 0.4);
+      border-top: 4px solid #393939;
+      border-radius: 36px;
+      display: inline-block;
+      height: 990px;
+      perspective: 5400px;
+      position: relative;
+      width: 3400px; 
+      background: #2a2a2a;
+      color: #ff3b30;
+      font-size: 650px;
+      letter-spacing: 24px; 
+      text-align: center;
+      text-shadow: 0 9px 18px rgba(0,0,0,0.5);
+    }
+
+    .nums::before {
+      border-bottom: 13px solid #000;
+      content: '';
+      height: 4px;
+      left: 0;
+      position: absolute;
+      transform: translate3d(0, -6.5px, 0);
+      top: 50%;
+      width: 100%;
+      z-index: 10;
+    }
+
+    .half {
+      position: absolute;
+      left: 0;
+      width: 100%;
+      height: 50%;
+      overflow: hidden;
+      backface-visibility: hidden;
+      display: block;
+    }
+
+    .half-top {
+      top: 0;
+      background: #181818;
+      border-radius: 36px 36px 0 0;
+      box-shadow: inset 0 67px 225px #111111;
+      line-height: 1.45; 
+      transform-origin: bottom;
+      z-index: 1;
+    }
+
+    .half-bottom {
+      bottom: 0;
+      background: #2a2a2a;
+      border-bottom: 4px solid #444444;
+      border-radius: 0 0 36px 36px;
+      box-shadow: inset 0 67px 225px #202020;
+      line-height: 0;
+      transform-origin: top;
+      z-index: 1;
+    }
+
+    #flap-top { z-index: 2; transform: rotateX(0deg); }
+    #flap-bottom { z-index: 2; transform: rotateX(90deg); }
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container">
+    <div class="nums" id="badgeBox">
+      <div class="half half-top" id="top-half">5 LEFT</div>
+      <div class="half half-bottom" id="bottom-half">5 LEFT</div>
+      <div class="half half-top" id="flap-top">5 LEFT</div>
+      <div class="half half-bottom" id="flap-bottom">5 LEFT</div>
+    </div>
+  </div>
+
+  <script>
+    // 1. Inisialisasi PRNG (Aturan 15)
+    const SEED = 918237;
+    const SALT = 102938;
+    
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = (a + 0x6D2B79F5) | 0;
+        let t = Math.imul(a ^ (a >>> 15), 1 | a);
+        t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+        return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+      };
+    }
+    
+    const finalSeed = (SEED + Math.imul(SALT, 2654435761)) >>> 0;
+    const rng = mulberry32(finalSeed);
+    
+    const baseHue = 0; 
+    const hueShift = Math.floor(rng() * 30 - 15);
+    const dynamicColor = `hsl(${baseHue + hueShift}, 100%, 55%)`;
+
+    // 2. Definisi Timeline Time-based (Aturan 3 & 4)
+    const DUR = 10000;
+    const events = [
+      { time: 0, text: "5 LEFT", flipDur: 0 },
+      { time: 1000, text: "4 LEFT", flipDur: 800 },
+      { time: 2200, text: "3 LEFT", flipDur: 800 },
+      { time: 3400, text: "2 LEFT", flipDur: 800 },
+      { time: 4600, text: "1 LEFT", flipDur: 800 },
+      { time: 6600, text: "SOLD OUT", flipDur: 800 },
+      { time: DUR, text: "SOLD OUT", flipDur: 0 }
+    ];
+
+    let startTimestamp = null;
+    
+    const topHalf = document.getElementById('top-half');
+    const bottomHalf = document.getElementById('bottom-half');
+    const flapTop = document.getElementById('flap-top');
+    const flapBottom = document.getElementById('flap-bottom');
+    
+    function init() {
+      const badgeBox = document.getElementById('badgeBox');
+      badgeBox.style.color = dynamicColor;
+      
+      requestAnimationFrame(tick);
+    }
+
+    // 3. Loop Utama (Aturan 2)
+    function tick(timestamp) {
+      if (!startTimestamp) startTimestamp = timestamp;
+      let elapsed = timestamp - startTimestamp;
+      if (elapsed > DUR) elapsed = DUR;
+
+      let currentEventIdx = 0;
+      for (let i = events.length - 1; i >= 0; i--) {
+        if (elapsed >= events[i].time) {
+          currentEventIdx = i;
+          break;
+        }
+      }
+
+      const evt = events[currentEventIdx];
+      
+      let tTop = evt.text;
+      let tBottom = evt.text;
+      let tFlapTop = evt.text;
+      let tFlapBottom = evt.text;
+      
+      let aFlapTop = 0;
+      let aFlapBottom = 90;
+
+      if (evt.flipDur > 0) {
+        const flipProgress = (elapsed - evt.time) / evt.flipDur;
+        
+        if (flipProgress < 1.0) {
+          const prevText = events[currentEventIdx - 1].text;
+          const newText = evt.text;
+
+          tTop = newText;
+          tBottom = prevText;
+          tFlapTop = prevText;
+          tFlapBottom = newText;
+
+          if (flipProgress < 0.5) {
+            // Paruh pertama: Kertas atas jatuh
+            const localP = flipProgress / 0.5;
+            const easeIn = localP * localP * localP;
+            aFlapTop = -90 * easeIn;
+            aFlapBottom = 90;
+          } else {
+            // Paruh kedua: Kertas bawah muncul dengan efek bounce
+            aFlapTop = -90;
+            const localP = (flipProgress - 0.5) / 0.5;
+            
+            if (localP < 0.5) {
+              const t = localP / 0.5;
+              aFlapBottom = 90 * (1 - t) * (1 - t);
+            } else if (localP < 0.7) {
+              const t = (localP - 0.5) / 0.2;
+              aFlapBottom = 25 * t;
+            } else if (localP < 0.85) {
+              const t = (localP - 0.7) / 0.15;
+              aFlapBottom = 25 - 25 * t;
+            } else if (localP < 0.95) {
+              const t = (localP - 0.85) / 0.1;
+              aFlapBottom = 10 * t;
+            } else {
+              const t = (localP - 0.95) / 0.05;
+              aFlapBottom = 10 - 10 * t;
+            }
+          }
+        }
+      }
+
+      // Update DOM
+      topHalf.innerText = tTop;
+      bottomHalf.innerText = tBottom;
+      flapTop.innerText = tFlapTop;
+      flapBottom.innerText = tFlapBottom;
+
+      flapTop.style.transform = `rotateX(${aFlapTop}deg)`;
+      flapBottom.style.transform = `rotateX(${aFlapBottom}deg)`;
+
+      if (elapsed < DUR) {
+        requestAnimationFrame(tick);
+      }
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
